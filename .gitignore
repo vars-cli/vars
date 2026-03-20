@@ -1,0 +1,16 @@
+# Binary
+secrets
+!secrets/
+
+# Build
+dist/
+
+# Environment files
+*.env
+.secrets-map.yaml
+
+# OS
+.DS_Store
+
+# Coverage
+coverage.out
