@@ -12,11 +12,9 @@ import (
 	"time"
 )
 
-// binary is the path to the compiled secrets binary.
 var binary string
 
 func TestMain(m *testing.M) {
-	// Build the binary once for all integration tests
 	tmp, err := os.MkdirTemp("", "secrets-integration-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "creating temp dir: %v\n", err)
@@ -35,9 +33,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// runner is a test helper that runs the secrets binary in an isolated store.
 type runner struct {
-	t       *testing.T
+	t        *testing.T
 	storeDir string
 	workDir  string
 	env      []string
@@ -47,16 +44,24 @@ func newRunner(t *testing.T) *runner {
 	t.Helper()
 	storeDir := t.TempDir()
 	workDir := t.TempDir()
-	return &runner{
+	r := &runner{
 		t:        t,
 		storeDir: storeDir,
 		workDir:  workDir,
 		env: []string{
 			"SECRETS_STORE_DIR=" + storeDir,
-			"HOME=" + t.TempDir(), // isolate from real home
+			"HOME=" + t.TempDir(),
 			"PATH=" + os.Getenv("PATH"),
 		},
 	}
+
+	// Stop any auto-started agent when the test ends
+	t.Cleanup(func() {
+		r.run("agent", "stop")
+		time.Sleep(50 * time.Millisecond)
+	})
+
+	return r
 }
 
 func (r *runner) run(args ...string) (string, string, error) {
@@ -89,7 +94,6 @@ func (r *runner) mustFail(args ...string) (string, string) {
 	return stdout, stderr
 }
 
-// runWithStdin runs with the given stdin content.
 func (r *runner) runWithStdin(stdin string, args ...string) (string, string, error) {
 	r.t.Helper()
 	cmd := exec.Command(binary, args...)
@@ -112,13 +116,11 @@ func (r *runner) mustRunWithStdin(stdin string, args ...string) string {
 	return stdout
 }
 
-// initNoPassphrase initializes a store with no passphrase.
 func (r *runner) initNoPassphrase() {
 	r.t.Helper()
 	r.mustRunWithStdin("\n\n", "init")
 }
 
-// writeFile writes a file in the runner's work directory.
 func (r *runner) writeFile(name, content string) {
 	r.t.Helper()
 	path := filepath.Join(r.workDir, name)
@@ -136,7 +138,7 @@ func TestIntegration_CRUDLifecycle(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	// set
+	// set (agent auto-starts on first command)
 	r.mustRun("set", "API_KEY", "my-secret-key")
 	r.mustRun("set", "DB_URL", "postgres://localhost/db")
 	r.mustRun("set", "TOKEN", "abc123")
@@ -146,8 +148,6 @@ func TestIntegration_CRUDLifecycle(t *testing.T) {
 	if out != "my-secret-key" {
 		t.Fatalf("get API_KEY = %q, want %q", out, "my-secret-key")
 	}
-
-	// get - no trailing newline
 	if strings.HasSuffix(out, "\n") {
 		t.Fatal("get should not have trailing newline")
 	}
@@ -158,7 +158,6 @@ func TestIntegration_CRUDLifecycle(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("ls returned %d lines, want 3: %v", len(lines), lines)
 	}
-	// Should be sorted
 	if lines[0] != "API_KEY" || lines[1] != "DB_URL" || lines[2] != "TOKEN" {
 		t.Fatalf("ls not sorted: %v", lines)
 	}
@@ -171,10 +170,7 @@ func TestIntegration_CRUDLifecycle(t *testing.T) {
 		t.Fatalf("ls after rm returned %d lines, want 2", len(lines))
 	}
 
-	// get deleted key should fail
 	r.mustFail("get", "TOKEN")
-
-	// rm nonexistent should fail
 	r.mustFail("rm", "NONEXISTENT", "--force")
 }
 
@@ -183,7 +179,7 @@ func TestIntegration_SetOverwrite(t *testing.T) {
 	r.initNoPassphrase()
 
 	r.mustRun("set", "KEY", "first")
-	r.mustRun("set", "KEY", "second")
+	r.mustRun("set", "KEY", "second") // overwrite, no passphrase needed (empty-pass store)
 
 	out := r.mustRun("get", "KEY")
 	if out != "second" {
@@ -196,10 +192,10 @@ func TestIntegration_SpecialValues(t *testing.T) {
 	r.initNoPassphrase()
 
 	cases := map[string]string{
-		"SPACES":    "value with spaces",
-		"EQUALS":    "key=value=extra",
-		"URL":       "https://user:pass@host:8080/path?q=1&r=2",
-		"HEX":       "0xdeadbeef0123456789abcdef",
+		"SPACES": "value with spaces",
+		"EQUALS": "key=value=extra",
+		"URL":    "https://user:pass@host:8080/path?q=1&r=2",
+		"HEX":    "0xdeadbeef0123456789abcdef",
 	}
 
 	for k, v := range cases {
@@ -304,10 +300,8 @@ keys:
   - MISSING
 `)
 
-	// Without --partial, should fail
 	r.mustFail("export", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
 
-	// With --partial, should succeed with empty value for MISSING
 	out := r.mustRun("export", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--partial")
 	if !strings.Contains(out, "EXISTS") {
 		t.Fatalf("partial export missing EXISTS: %s", out)
@@ -332,61 +326,46 @@ func TestIntegration_DumpAllFormats(t *testing.T) {
 	}
 }
 
-func TestIntegration_AgentLifecycle(t *testing.T) {
+func TestIntegration_AgentAutoStart(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	r.mustRun("set", "AGENT_KEY", "agent-value")
+	// First command auto-starts the agent
+	r.mustRun("set", "AUTO_KEY", "auto_value")
 
-	// Start agent — socket is at SECRETS_STORE_DIR/agent.sock automatically
-	r.mustRun("agent", "--ttl", "30s")
-
-	// get via agent (binary finds socket via SECRETS_STORE_DIR)
-	val := r.mustRun("get", "AGENT_KEY")
-	if val != "agent-value" {
-		t.Fatalf("get via agent = %q, want %q", val, "agent-value")
+	// Agent should be running now
+	_, stderr, err := r.run("agent")
+	if err != nil {
+		t.Fatalf("agent check failed: %v", err)
+	}
+	if !strings.Contains(stderr, "already running") {
+		t.Fatalf("agent should be auto-started, got: %s", stderr)
 	}
 
-	// ls via agent
-	lsOut := r.mustRun("ls")
-	if !strings.Contains(lsOut, "AGENT_KEY") {
-		t.Fatalf("ls via agent missing key: %s", lsOut)
-	}
-
-	// stop
-	r.mustRun("agent", "stop")
-
-	// Give it a moment to shut down
-	time.Sleep(100 * time.Millisecond)
-
-	// After stop, get should fall back to file
-	val = r.mustRun("get", "AGENT_KEY")
-	if val != "agent-value" {
-		t.Fatalf("get after agent stop = %q, want %q", val, "agent-value")
+	// Reads work via agent
+	val := r.mustRun("get", "AUTO_KEY")
+	if val != "auto_value" {
+		t.Fatalf("get = %q, want %q", val, "auto_value")
 	}
 }
 
-func TestIntegration_AgentAlreadyRunning(t *testing.T) {
+func TestIntegration_AgentExplicitStop(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	r.mustRun("set", "KEY", "value")
+	// Auto-start via any command
+	r.mustRun("ls")
 
-	// Start agent
-	r.mustRun("agent", "--ttl", "30s")
-
-	// Second start should succeed (idempotent)
-	_, stderr, err := r.run("agent")
-	if err != nil {
-		t.Fatalf("second agent start should not error: %v", err)
-	}
-	if !strings.Contains(stderr, "already running") {
-		t.Fatalf("second agent start should say already running, got: %s", stderr)
-	}
-
-	// Clean up
+	// Stop
 	r.mustRun("agent", "stop")
 	time.Sleep(100 * time.Millisecond)
+
+	// Next command should auto-start again
+	r.mustRun("set", "KEY", "value")
+	val := r.mustRun("get", "KEY")
+	if val != "value" {
+		t.Fatalf("get after restart = %q, want %q", val, "value")
+	}
 }
 
 func TestIntegration_Passwd_EmptyToSet(t *testing.T) {
@@ -395,19 +374,24 @@ func TestIntegration_Passwd_EmptyToSet(t *testing.T) {
 
 	r.mustRun("set", "KEY", "value")
 
-	// Change from empty to "newpass"
+	// Change from empty to "newpass" — passwd goes through agent.
+	// New passphrase prompted, then old passphrase tried (empty → accepted).
 	r.mustRunWithStdin("newpass\nnewpass\n", "passwd")
 
-	// get should now require passphrase — will fail without stdin
-	_, _, err := r.run("get", "KEY")
-	if err == nil {
-		t.Fatal("get should fail without passphrase after passwd")
+	// Agent is still running with new passphrase. Reads still work.
+	val := r.mustRun("get", "KEY")
+	if val != "value" {
+		t.Fatalf("get after passwd = %q, want %q", val, "value")
 	}
 
-	// get with passphrase via stdin
+	// Stop and restart to verify passphrase changed on disk
+	r.mustRun("agent", "stop")
+	time.Sleep(100 * time.Millisecond)
+
+	// Now starting agent requires the new passphrase
 	out, _, err := r.runWithStdin("newpass\n", "get", "KEY")
 	if err != nil {
-		t.Fatalf("get with passphrase failed: %v", err)
+		t.Fatalf("get with new passphrase failed: %v", err)
 	}
 	if out != "value" {
 		t.Fatalf("get = %q, want %q", out, "value")
@@ -420,16 +404,26 @@ func TestIntegration_Passwd_SetToEmpty(t *testing.T) {
 	// Init with passphrase
 	r.mustRunWithStdin("mypass\nmypass\n", "init")
 
-	// Set a value
+	// Auto-start agent (needs passphrase) and set a value
 	r.mustRunWithStdin("mypass\n", "set", "KEY", "value")
 
-	// Change to empty passphrase
-	r.mustRunWithStdin("mypass\n\n\n", "passwd")
+	// Change to empty passphrase.
+	// Input: new passphrase (empty, confirm empty), then old passphrase (mypass).
+	r.mustRunWithStdin("\n\nmypass\n", "passwd")
 
-	// get should now work without passphrase
+	// Reads still work (agent has the data)
+	val := r.mustRun("get", "KEY")
+	if val != "value" {
+		t.Fatalf("get after passwd = %q, want %q", val, "value")
+	}
+
+	// Stop and restart — should not need passphrase now
+	r.mustRun("agent", "stop")
+	time.Sleep(100 * time.Millisecond)
+
 	out := r.mustRun("get", "KEY")
 	if out != "value" {
-		t.Fatalf("get after passwd to empty = %q, want %q", out, "value")
+		t.Fatalf("get after restart = %q, want %q", out, "value")
 	}
 }
 
@@ -437,7 +431,6 @@ func TestIntegration_InitAlreadyExists(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	// Second init should succeed (idempotent, prints message)
 	_, stderr, err := r.runWithStdin("\n\n", "init")
 	if err != nil {
 		t.Fatalf("second init should not error: %v", err)
@@ -450,19 +443,16 @@ func TestIntegration_InitAlreadyExists(t *testing.T) {
 func TestIntegration_NoStore(t *testing.T) {
 	r := newRunner(t)
 
-	// get without init should fail
 	_, stderr := r.mustFail("get", "KEY")
 	if !strings.Contains(stderr, "No store found") {
 		t.Fatalf("expected 'No store found' error, got: %s", stderr)
 	}
 
-	// set without init should fail
 	_, stderr = r.mustFail("set", "KEY", "value")
 	if !strings.Contains(stderr, "No store found") {
 		t.Fatalf("expected 'No store found' error, got: %s", stderr)
 	}
 
-	// ls without init should fail
 	_, stderr = r.mustFail("ls")
 	if !strings.Contains(stderr, "No store found") {
 		t.Fatalf("expected 'No store found' error, got: %s", stderr)
@@ -472,11 +462,9 @@ func TestIntegration_NoStore(t *testing.T) {
 func TestIntegration_WrongPassphrase(t *testing.T) {
 	r := newRunner(t)
 
-	// Init with passphrase
 	r.mustRunWithStdin("correctpass\ncorrectpass\n", "init")
-	r.mustRunWithStdin("correctpass\n", "set", "KEY", "value")
 
-	// Get with wrong passphrase
+	// Agent auto-start with wrong passphrase should fail
 	_, stderr, err := r.runWithStdin("wrongpass\n", "get", "KEY")
 	if err == nil {
 		t.Fatal("get with wrong passphrase should fail")
@@ -572,7 +560,6 @@ keys:
 	if len(lines) != 3 {
 		t.Fatalf("export returned %d lines, want 3", len(lines))
 	}
-	// Order should match manifest, not alphabetical
 	if !strings.Contains(lines[0], "MIKE") {
 		t.Fatalf("first line should contain MIKE, got: %s", lines[0])
 	}

@@ -2,41 +2,54 @@ package agent
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	agebackend "github.com/brickpop/secrets/internal/crypto/age"
+	"github.com/brickpop/secrets/internal/store"
 )
 
-func startTestServer(t *testing.T, data map[string]string, ttl time.Duration) (string, *Server) {
+func startTestServer(t *testing.T, data map[string]string, passphrase string, ttl time.Duration) (string, *Server) {
 	t.Helper()
 	dir := t.TempDir()
 	sockPath := filepath.Join(dir, "agent.sock")
-	srv := NewServer(data, sockPath)
 
-	ready := make(chan struct{})
+	// Create the store dir and init a store so SaveData works
+	storeDir := t.TempDir()
+	t.Setenv("SECRETS_STORE_DIR", storeDir)
+	backend := agebackend.New(passphrase)
+
+	// Init the store so the directory/file exist
+	if err := store.Init(backend); err != nil {
+		t.Fatalf("store init: %v", err)
+	}
+
+	srv := NewServer(data, sockPath, passphrase, backend, storeDir)
+
 	go func() {
-		close(ready)
 		srv.Start(ttl)
 	}()
-	<-ready
 
-	// Wait for socket to be ready
-	for i := 0; i < 50; i++ {
-		if IsRunning(sockPath) {
-			return sockPath, srv
-		}
-		time.Sleep(10 * time.Millisecond)
+	select {
+	case <-srv.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not start in time")
 	}
-	t.Fatal("server did not start in time")
-	return "", nil
+
+	return sockPath, srv
 }
+
+// --- Read tests ---
 
 func TestGetExisting(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"KEY_A": "value_a",
 		"KEY_B": "value_b",
-	}, 0)
+	}, "", 0)
 	defer srv.Stop()
 
 	val, err := Get(sockPath, "KEY_A")
@@ -51,7 +64,7 @@ func TestGetExisting(t *testing.T) {
 func TestGetMissing(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"KEY_A": "value_a",
-	}, 0)
+	}, "", 0)
 	defer srv.Stop()
 
 	_, err := Get(sockPath, "NONEXISTENT")
@@ -65,7 +78,7 @@ func TestList(t *testing.T) {
 		"ZEBRA": "z",
 		"ALPHA": "a",
 		"MIKE":  "m",
-	}, 0)
+	}, "", 0)
 	defer srv.Stop()
 
 	keys, err := List(sockPath)
@@ -84,7 +97,7 @@ func TestList(t *testing.T) {
 }
 
 func TestListEmpty(t *testing.T) {
-	sockPath, srv := startTestServer(t, map[string]string{}, 0)
+	sockPath, srv := startTestServer(t, map[string]string{}, "", 0)
 	defer srv.Stop()
 
 	keys, err := List(sockPath)
@@ -96,18 +109,19 @@ func TestListEmpty(t *testing.T) {
 	}
 }
 
+// --- Lifecycle tests ---
+
 func TestStop(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"KEY": "value",
-	}, 0)
-	_ = srv // don't defer Stop — we'll stop via client
+	}, "", 0)
+	_ = srv
 
 	err := Stop(sockPath)
 	if err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
 
-	// Agent should be gone
 	time.Sleep(50 * time.Millisecond)
 	if IsRunning(sockPath) {
 		t.Fatal("agent should not be running after Stop")
@@ -117,14 +131,12 @@ func TestStop(t *testing.T) {
 func TestTTLExpiry(t *testing.T) {
 	sockPath, _ := startTestServer(t, map[string]string{
 		"KEY": "value",
-	}, 200*time.Millisecond)
+	}, "", 200*time.Millisecond)
 
-	// Should be running initially
 	if !IsRunning(sockPath) {
 		t.Fatal("agent should be running")
 	}
 
-	// Wait for TTL
 	time.Sleep(400 * time.Millisecond)
 
 	if IsRunning(sockPath) {
@@ -135,10 +147,9 @@ func TestTTLExpiry(t *testing.T) {
 func TestTTLZeroNoExpiry(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"KEY": "value",
-	}, 0)
+	}, "", 0)
 	defer srv.Stop()
 
-	// Should still be running after some time
 	time.Sleep(200 * time.Millisecond)
 	if !IsRunning(sockPath) {
 		t.Fatal("agent with TTL=0 should still be running")
@@ -148,7 +159,7 @@ func TestTTLZeroNoExpiry(t *testing.T) {
 func TestConcurrentClients(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"KEY": "value",
-	}, 0)
+	}, "", 0)
 	defer srv.Stop()
 
 	var wg sync.WaitGroup
@@ -184,7 +195,7 @@ func TestIsRunning_NotRunning(t *testing.T) {
 }
 
 func TestUnknownOp(t *testing.T) {
-	sockPath, srv := startTestServer(t, map[string]string{}, 0)
+	sockPath, srv := startTestServer(t, map[string]string{}, "", 0)
 	defer srv.Stop()
 
 	resp, err := roundTrip(sockPath, &Request{Op: "invalid"})
@@ -196,5 +207,259 @@ func TestUnknownOp(t *testing.T) {
 	}
 }
 
-// ensure fmt is used
-var _ = fmt.Errorf
+// --- Write tests ---
+
+func TestSetNewKey_NoPassphrase(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{}, "secret", 0)
+	defer srv.Stop()
+
+	// New key should work without passphrase
+	err := Set(sockPath, "NEW_KEY", "new_value", "")
+	if err != nil {
+		t.Fatalf("Set new key: %v", err)
+	}
+
+	val, err := Get(sockPath, "NEW_KEY")
+	if err != nil {
+		t.Fatalf("Get after set: %v", err)
+	}
+	if val != "new_value" {
+		t.Fatalf("Get = %q, want %q", val, "new_value")
+	}
+}
+
+func TestSetOverwrite_RequiresPassphrase(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "old_value",
+	}, "secret", 0)
+	defer srv.Stop()
+
+	// Overwrite with wrong passphrase should fail
+	err := Set(sockPath, "KEY", "new_value", "wrong")
+	if err == nil {
+		t.Fatal("overwrite with wrong passphrase should fail")
+	}
+	if !strings.Contains(err.Error(), ErrPassphraseRequired) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Value should be unchanged
+	val, _ := Get(sockPath, "KEY")
+	if val != "old_value" {
+		t.Fatalf("value changed despite failed overwrite: %q", val)
+	}
+
+	// Overwrite with correct passphrase should succeed
+	err = Set(sockPath, "KEY", "new_value", "secret")
+	if err != nil {
+		t.Fatalf("overwrite with correct passphrase: %v", err)
+	}
+
+	val, _ = Get(sockPath, "KEY")
+	if val != "new_value" {
+		t.Fatalf("Get after overwrite = %q, want %q", val, "new_value")
+	}
+}
+
+func TestSetOverwrite_EmptyPassphrase(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "old_value",
+	}, "", 0)
+	defer srv.Stop()
+
+	// Overwrite with empty passphrase (store has no passphrase) should work
+	err := Set(sockPath, "KEY", "new_value", "")
+	if err != nil {
+		t.Fatalf("overwrite with empty passphrase: %v", err)
+	}
+
+	val, _ := Get(sockPath, "KEY")
+	if val != "new_value" {
+		t.Fatalf("Get = %q, want %q", val, "new_value")
+	}
+}
+
+func TestDelete_RequiresPassphrase(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "value",
+	}, "secret", 0)
+	defer srv.Stop()
+
+	// Delete with wrong passphrase
+	err := Delete(sockPath, "KEY", "wrong")
+	if err == nil {
+		t.Fatal("delete with wrong passphrase should fail")
+	}
+	if !strings.Contains(err.Error(), ErrPassphraseRequired) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Key should still exist
+	val, _ := Get(sockPath, "KEY")
+	if val != "value" {
+		t.Fatalf("key changed despite failed delete: %q", val)
+	}
+
+	// Delete with correct passphrase
+	err = Delete(sockPath, "KEY", "secret")
+	if err != nil {
+		t.Fatalf("delete with correct passphrase: %v", err)
+	}
+
+	// Key should be gone
+	_, err = Get(sockPath, "KEY")
+	if err == nil {
+		t.Fatal("key should be gone after delete")
+	}
+}
+
+func TestDelete_NonexistentKey(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{}, "secret", 0)
+	defer srv.Stop()
+
+	err := Delete(sockPath, "NONEXISTENT", "secret")
+	if err == nil {
+		t.Fatal("delete nonexistent should fail")
+	}
+}
+
+func TestPasswd(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "value",
+	}, "oldpass", 0)
+	defer srv.Stop()
+
+	// Wrong old passphrase
+	err := Passwd(sockPath, "wrong", "newpass")
+	if err == nil {
+		t.Fatal("passwd with wrong old passphrase should fail")
+	}
+
+	// Correct old passphrase
+	err = Passwd(sockPath, "oldpass", "newpass")
+	if err != nil {
+		t.Fatalf("passwd: %v", err)
+	}
+
+	// Data should still be readable
+	val, err := Get(sockPath, "KEY")
+	if err != nil {
+		t.Fatalf("get after passwd: %v", err)
+	}
+	if val != "value" {
+		t.Fatalf("value changed after passwd: %q", val)
+	}
+
+	// Old passphrase should no longer work for writes
+	err = Set(sockPath, "KEY", "updated", "oldpass")
+	if err == nil {
+		t.Fatal("old passphrase should no longer work")
+	}
+
+	// New passphrase should work for writes
+	err = Set(sockPath, "KEY", "updated", "newpass")
+	if err != nil {
+		t.Fatalf("set with new passphrase: %v", err)
+	}
+}
+
+func TestPasswd_EmptyToSet(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "value",
+	}, "", 0)
+	defer srv.Stop()
+
+	err := Passwd(sockPath, "", "newpass")
+	if err != nil {
+		t.Fatalf("passwd empty to set: %v", err)
+	}
+
+	// Now overwrites require newpass
+	err = Set(sockPath, "KEY", "updated", "")
+	if err == nil {
+		t.Fatal("empty passphrase should no longer work")
+	}
+
+	err = Set(sockPath, "KEY", "updated", "newpass")
+	if err != nil {
+		t.Fatalf("set with new passphrase: %v", err)
+	}
+}
+
+func TestConcurrentSets(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{}, "", 0)
+	defer srv.Stop()
+
+	// Use 5 concurrent writes (not 20) because each write does scrypt
+	// encryption which is ~500ms, and the write lock serializes them.
+	const n = 5
+	var wg sync.WaitGroup
+	errors := make(chan error, n)
+
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			key := fmt.Sprintf("KEY_%d", i)
+			err := Set(sockPath, key, fmt.Sprintf("value_%d", i), "")
+			if err != nil {
+				errors <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errors)
+
+	for err := range errors {
+		t.Fatalf("concurrent set error: %v", err)
+	}
+
+	keys, err := List(sockPath)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(keys) != n {
+		t.Fatalf("expected %d keys, got %d", n, len(keys))
+	}
+}
+
+func TestSetPersistsToDisk(t *testing.T) {
+	dir := t.TempDir()
+	storeDir := t.TempDir()
+	t.Setenv("SECRETS_STORE_DIR", storeDir)
+	sockPath := filepath.Join(dir, "agent.sock")
+
+	backend := agebackend.New("")
+	if err := store.Init(backend); err != nil {
+		t.Fatalf("store init: %v", err)
+	}
+
+	srv := NewServer(map[string]string{}, sockPath, "", backend, storeDir)
+	go func() { srv.Start(0) }()
+	<-srv.Ready()
+	defer srv.Stop()
+
+	// Set a key via agent
+	if err := Set(sockPath, "PERSIST", "disk_value", ""); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	// Read back from disk (bypass agent) to verify persistence
+	s, err := store.Open(backend)
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	defer s.Close()
+
+	val, err := s.Get("PERSIST")
+	if err != nil {
+		t.Fatalf("store.Get: %v", err)
+	}
+	if string(val) != "disk_value" {
+		t.Fatalf("disk value = %q, want %q", val, "disk_value")
+	}
+}
+
+// keep fmt used
+var _ = os.Remove

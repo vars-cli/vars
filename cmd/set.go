@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/brickpop/secrets/internal/agent"
 )
 
 func init() {
@@ -32,15 +34,18 @@ shell history).`,
 			value = v
 		}
 
-		s, err := openStore()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		s.Set(key, []byte(value))
-		if err := s.Save(); err != nil {
-			return InternalError(err.Error())
+		// agent.Set uses trial passphrase: new keys need no passphrase,
+		// overwrites require it.
+		err = withPassphrase(func(passphrase string) error {
+			return agent.Set(sockPath, key, value, passphrase)
+		})
+		if err != nil {
+			return UserError(err.Error())
 		}
 
 		printManifestHint(key)

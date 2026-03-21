@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/brickpop/secrets/internal/agent"
 	"github.com/brickpop/secrets/internal/format"
 	"github.com/brickpop/secrets/internal/manifest"
 )
@@ -43,13 +44,11 @@ against the store, and print shell-source-able lines to stdout.
 			return UserError(err.Error())
 		}
 
-		s, err := openStoreReadOnly()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		// Resolve all variables against the store
 		type exportEntry struct {
 			envName string
 			value   string
@@ -57,7 +56,7 @@ against the store, and print shell-source-able lines to stdout.
 		var entries []exportEntry
 
 		for _, v := range vars {
-			val, err := s.Get(v.StoreKey)
+			val, err := agent.Get(sockPath, v.StoreKey)
 			if err != nil {
 				if exportPartial {
 					fmt.Fprintf(os.Stderr, "Warning: %q not found in store, exporting as empty.\n", v.StoreKey)
@@ -66,7 +65,7 @@ against the store, and print shell-source-able lines to stdout.
 				}
 				return UserError(fmt.Sprintf("Export failed: key %q (required by .secrets.yaml) is not in the store.", v.StoreKey))
 			}
-			entries = append(entries, exportEntry{v.EnvName, string(val)})
+			entries = append(entries, exportEntry{v.EnvName, val})
 		}
 
 		for _, e := range entries {

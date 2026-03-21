@@ -268,6 +268,24 @@ func CheckPermissions() []string {
 	return warnings
 }
 
+// SaveData encrypts a map[string]string and writes it atomically to disk.
+// Used by the agent server which holds data as strings, not *Store.
+func SaveData(data map[string]string, backend crypto.Backend, dir string) error {
+	plaintext, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("serializing store: %w", err)
+	}
+
+	ciphertext, err := backend.Encrypt(plaintext)
+	zeroBytes(plaintext)
+	if err != nil {
+		return fmt.Errorf("encrypting store: %w", err)
+	}
+
+	storePath := filepath.Join(dir, storeFileName)
+	return atomicWrite(storePath, ciphertext)
+}
+
 // atomicWrite writes data to a temp file then renames it to path.
 func atomicWrite(path string, data []byte) error {
 	dir := filepath.Dir(path)

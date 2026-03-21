@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/brickpop/secrets/internal/agent"
 	"github.com/brickpop/secrets/internal/format"
 )
 
@@ -30,15 +31,19 @@ Intended for debugging and migration only.`,
 
 		fmt.Fprintln(os.Stderr, "Warning: dumping all secrets from store.")
 
-		s, err := openStoreReadOnly()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		for _, key := range s.List() {
-			val, _ := s.Get(key)
-			fmt.Fprintln(os.Stdout, formatter(key, string(val)))
+		keys, err := agent.List(sockPath)
+		if err != nil {
+			return InternalError(err.Error())
+		}
+
+		for _, key := range keys {
+			val, _ := agent.Get(sockPath, key)
+			fmt.Fprintln(os.Stdout, formatter(key, val))
 		}
 
 		return nil

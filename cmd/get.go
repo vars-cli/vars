@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/brickpop/secrets/internal/agent"
 )
 
 func init() {
@@ -19,18 +21,17 @@ var getCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 
-		s, err := openStoreReadOnly()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		val, err := s.Get(key)
+		val, err := agent.Get(sockPath, key)
 		if err != nil {
 			return UserError(fmt.Sprintf("Key %q not found in store.", key))
 		}
 
-		fmt.Fprint(os.Stdout, string(val))
+		fmt.Fprint(os.Stdout, val)
 		return nil
 	},
 }

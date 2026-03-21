@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/crypto/age"
+	"github.com/brickpop/secrets/internal/agent"
 )
 
 func init() {
@@ -16,16 +16,16 @@ func init() {
 var passwdCmd = &cobra.Command{
 	Use:   "passwd",
 	Short: "Change the store passphrase",
-	Long: `Decrypt the store with the current passphrase, then re-encrypt with
-a new one. An empty passphrase is allowed.`,
+	Long: `Re-encrypt the store with a new passphrase. An empty passphrase
+is allowed. The agent updates its internal state — no restart needed.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := openStore()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
+		// Prompt for new passphrase first
 		newPass, err := stdinPrompter().PassphraseConfirm(
 			"New passphrase (leave empty for no passphrase): ",
 			"Confirm new passphrase: ",
@@ -34,17 +34,16 @@ a new one. An empty passphrase is allowed.`,
 			return UserError(err.Error())
 		}
 
-		newBackend := age.New(newPass)
-		if err := s.SaveWithBackend(newBackend); err != nil {
-			return InternalError(err.Error())
+		// Send to agent — withPassphrase handles the current passphrase
+		// via trial approach (empty first, prompt if required).
+		err = withPassphrase(func(oldPass string) error {
+			return agent.Passwd(sockPath, oldPass, newPass)
+		})
+		if err != nil {
+			return UserError(err.Error())
 		}
 
 		fmt.Fprintln(os.Stderr, "Passphrase updated.")
-
-		if stopped := tryStopAgent(); stopped {
-			fmt.Fprintln(os.Stderr, "Agent stopped. Restart it to use the new passphrase.")
-		}
-
 		return nil
 	},
 }

@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/brickpop/secrets/internal/agent"
 )
 
 func init() {
@@ -17,13 +19,17 @@ var lsCmd = &cobra.Command{
 	Long:  `List all key names sorted lexicographically, one per line. Never prints values.`,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s, err := openStoreReadOnly()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		for _, key := range s.List() {
+		keys, err := agent.List(sockPath)
+		if err != nil {
+			return InternalError(err.Error())
+		}
+
+		for _, key := range keys {
 			fmt.Fprintln(os.Stdout, key)
 		}
 		return nil

@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/brickpop/secrets/internal/agent"
 )
 
 func init() {
@@ -22,14 +24,13 @@ var rmCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 
-		s, err := openStore()
+		sockPath, err := ensureAgent()
 		if err != nil {
 			return err
 		}
-		defer s.Close()
 
-		// Check key exists before prompting
-		if _, err := s.Get(key); err != nil {
+		// Verify key exists via agent before prompting
+		if _, err := agent.Get(sockPath, key); err != nil {
 			return UserError(fmt.Sprintf("Key %q not found in store.", key))
 		}
 
@@ -43,11 +44,11 @@ var rmCmd = &cobra.Command{
 			}
 		}
 
-		if err := s.Delete(key); err != nil {
-			return UserError(fmt.Sprintf("Key %q not found in store.", key))
-		}
-		if err := s.Save(); err != nil {
-			return InternalError(err.Error())
+		err = withPassphrase(func(passphrase string) error {
+			return agent.Delete(sockPath, key, passphrase)
+		})
+		if err != nil {
+			return UserError(err.Error())
 		}
 
 		fmt.Fprintln(os.Stderr, "Removed.")

@@ -81,10 +81,13 @@ smoke: build
     trap "rm -rf $SECRETS_STORE_DIR" EXIT
     BIN="./secrets"
 
+    # Cleanup: stop agent on exit
+    trap "$BIN agent stop 2>/dev/null; rm -rf $SECRETS_STORE_DIR" EXIT
+
     echo "--- init (no passphrase) ---"
     echo -e "\n\n" | $BIN init
 
-    echo "--- set keys ---"
+    echo "--- set keys (agent auto-starts) ---"
     $BIN set RPC_URL https://rpc.example.com
     $BIN set PRIVATE_KEY 0xTESTKEY
     $BIN set ETHERSCAN_API abc123
@@ -98,7 +101,7 @@ smoke: build
 
     echo "--- export (posix) ---"
     WORKDIR=$(mktemp -d)
-    trap "rm -rf $SECRETS_STORE_DIR $WORKDIR" EXIT
+    trap "$BIN agent stop 2>/dev/null; rm -rf $SECRETS_STORE_DIR $WORKDIR" EXIT
     cat > "$WORKDIR/.secrets.yaml" <<'YAML'
     project: smoke-test
     keys:
@@ -125,20 +128,18 @@ smoke: build
     $BIN export -f "$WORKDIR/.secrets.yaml" --partial 2>/dev/null | grep -q "MISSING_KEY"
 
     echo "--- dump ---"
-    $BIN dump --format dotenv 2>/dev/null | grep -q "ETHERSCAN_API"
+    DUMP_OUT=$($BIN dump --format dotenv 2>/dev/null)
+    echo "$DUMP_OUT" | grep -q "ETHERSCAN_API"
 
     echo "--- rm ---"
     $BIN rm ETHERSCAN_API --force
     test "$($BIN ls | wc -l)" -eq 2
 
-    echo "--- agent ---"
-    $BIN agent --ttl 30s
-    # get via agent (binary finds socket automatically via SECRETS_STORE_DIR)
-    test "$($BIN get RPC_URL)" = "https://rpc.example.com"
-    # ls via agent
-    test "$($BIN ls | wc -l)" -eq 2
-    # stop
+    echo "--- agent stop + auto-restart ---"
     $BIN agent stop
+    sleep 0.2
+    # Next command should auto-start agent again
+    test "$($BIN get RPC_URL)" = "https://rpc.example.com"
 
     echo "--- version ---"
     $BIN --version | grep -q "secrets"

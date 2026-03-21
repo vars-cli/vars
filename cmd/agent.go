@@ -14,6 +14,12 @@ import (
 	"github.com/brickpop/secrets/internal/store"
 )
 
+// daemonPayload is the JSON structure written to the temp file for the daemon.
+type daemonPayload struct {
+	Passphrase string            `json:"passphrase"`
+	Data       map[string]string `json:"data"`
+}
+
 var agentTTL string
 
 func init() {
@@ -26,108 +32,32 @@ var agentCmd = &cobra.Command{
 	Use:   "agent",
 	Short: "Start the background agent",
 	Long: `Start a background agent that holds the decrypted store in memory.
-The agent is read-only and serves get/list requests over a Unix socket.`,
+Most commands auto-start the agent transparently. Use this command
+to set an explicit TTL.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sockPath := agentSocketPath()
 
-		// Check if already running
 		if agent.IsRunning(sockPath) {
 			fmt.Fprintln(os.Stderr, "Agent already running.")
 			return nil
 		}
 
-		// Check for --daemon flag (internal, used by re-exec)
+		// Internal daemon mode (re-exec'd child)
 		if os.Getenv("_SECRETS_AGENT_DAEMON") == "1" {
 			return runDaemon(sockPath)
 		}
 
-		// Parse TTL
 		ttl, err := parseTTL(agentTTL)
 		if err != nil {
 			return UserError(fmt.Sprintf("Invalid TTL: %v", err))
 		}
 
-		// Decrypt the store to verify passphrase before forking
-		if !store.Exists() {
-			return UserError("No store found. Run 'secrets init' to create one.")
+		if _, err := startAgent(ttl); err != nil {
+			return err
 		}
-
-		ciphertext, err := os.ReadFile(store.FilePath())
-		if err != nil {
-			return InternalError(fmt.Sprintf("reading store: %v", err))
-		}
-
-		var plaintext []byte
-		if pt, ok := agebackend.TrialDecryptEmpty(ciphertext); ok {
-			plaintext = pt
-		} else {
-			passphrase, err := stdinPrompter().Passphrase("Passphrase: ")
-			if err != nil {
-				return UserError(err.Error())
-			}
-			backend := agebackend.New(passphrase)
-			pt, err := backend.Decrypt(ciphertext)
-			if err != nil {
-				return UserError("Incorrect passphrase.")
-			}
-			plaintext = pt
-		}
-
-		// Verify it's valid JSON
-		var data map[string]string
-		if err := json.Unmarshal(plaintext, &data); err != nil {
-			return InternalError("corrupt store data")
-		}
-
-		// Re-exec as daemon
-		self, err := os.Executable()
-		if err != nil {
-			return InternalError(fmt.Sprintf("finding executable: %v", err))
-		}
-
-		// Write plaintext to a temp file that only the daemon reads, then deletes
-		tmpFile, err := os.CreateTemp("", ".secrets-agent-*")
-		if err != nil {
-			return InternalError("creating temp file for daemon")
-		}
-		tmpFile.Chmod(0600)
-		tmpFile.Write(plaintext)
-		tmpFile.Close()
-
-		// Zero plaintext in this process
-		for i := range plaintext {
-			plaintext[i] = 0
-		}
-
-		daemonCmd := exec.Command(self, "agent", "--ttl", agentTTL)
-		daemonCmd.Env = append(os.Environ(),
-			"_SECRETS_AGENT_DAEMON=1",
-			"_SECRETS_AGENT_DATA="+tmpFile.Name(),
-			"_SECRETS_AGENT_TTL="+agentTTL,
-		)
-		daemonCmd.Stdout = nil
-		daemonCmd.Stderr = nil
-
-		if err := daemonCmd.Start(); err != nil {
-			os.Remove(tmpFile.Name())
-			return InternalError(fmt.Sprintf("starting daemon: %v", err))
-		}
-
-		// Wait for socket to be ready
-		for i := 0; i < 100; i++ {
-			if agent.IsRunning(sockPath) {
-				break
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-
-		// Detach
-		daemonCmd.Process.Release()
 
 		fmt.Fprintln(os.Stderr, "Agent started.")
-
-		_ = ttl // TTL is passed to daemon via env
 		return nil
 	},
 }
@@ -152,22 +82,57 @@ var agentStopCmd = &cobra.Command{
 	},
 }
 
-// runDaemon is called by the re-exec'd child process.
-func runDaemon(sockPath string) error {
-	dataFile := os.Getenv("_SECRETS_AGENT_DATA")
-	if dataFile == "" {
-		return InternalError("daemon: missing data file")
+// startAgent decrypts the store, spawns the daemon, and waits for the socket.
+// Returns the socket path. Used by both `secrets agent` and ensureAgent().
+func startAgent(ttl time.Duration) (string, error) {
+	sockPath := agentSocketPath()
+
+	if !store.Exists() {
+		return "", UserError("No store found. Run 'secrets init' to create one.")
 	}
 
-	plaintext, err := os.ReadFile(dataFile)
+	ciphertext, err := os.ReadFile(store.FilePath())
 	if err != nil {
-		return InternalError("daemon: reading data file")
+		return "", InternalError(fmt.Sprintf("reading store: %v", err))
 	}
-	os.Remove(dataFile) // delete immediately
 
+	// Print permission warnings
+	for _, w := range store.CheckPermissions() {
+		fmt.Fprintln(os.Stderr, w)
+	}
+
+	// Decrypt: trial empty passphrase, then prompt
+	var plaintext []byte
+	var passphrase string
+
+	if pt, ok := agebackend.TrialDecryptEmpty(ciphertext); ok {
+		plaintext = pt
+		passphrase = ""
+	} else {
+		pass, err := stdinPrompter().Passphrase("Passphrase: ")
+		if err != nil {
+			return "", UserError(err.Error())
+		}
+		backend := agebackend.New(pass)
+		pt, err := backend.Decrypt(ciphertext)
+		if err != nil {
+			return "", UserError("Incorrect passphrase.")
+		}
+		plaintext = pt
+		passphrase = pass
+	}
+
+	// Verify valid JSON
 	var data map[string]string
 	if err := json.Unmarshal(plaintext, &data); err != nil {
-		return InternalError("daemon: corrupt data")
+		return "", InternalError("corrupt store data")
+	}
+
+	// Build daemon payload with passphrase
+	payload := daemonPayload{Passphrase: passphrase, Data: data}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", InternalError("serializing daemon payload")
 	}
 
 	// Zero plaintext
@@ -175,12 +140,88 @@ func runDaemon(sockPath string) error {
 		plaintext[i] = 0
 	}
 
+	// Write payload to temp file
+	tmpFile, err := os.CreateTemp("", ".secrets-agent-*")
+	if err != nil {
+		return "", InternalError("creating temp file for daemon")
+	}
+	tmpFile.Chmod(0600)
+	tmpFile.Write(payloadBytes)
+	tmpFile.Close()
+
+	// Zero payload bytes
+	for i := range payloadBytes {
+		payloadBytes[i] = 0
+	}
+
+	// Re-exec as daemon
+	self, err := os.Executable()
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return "", InternalError(fmt.Sprintf("finding executable: %v", err))
+	}
+
+	ttlStr := fmt.Sprintf("%s", ttl)
+	if ttl == 0 {
+		ttlStr = "0"
+	}
+
+	daemonCmd := exec.Command(self, "agent", "--ttl", ttlStr)
+	daemonCmd.Env = append(os.Environ(),
+		"_SECRETS_AGENT_DAEMON=1",
+		"_SECRETS_AGENT_DATA="+tmpFile.Name(),
+		"_SECRETS_AGENT_TTL="+ttlStr,
+	)
+	daemonCmd.Stdout = nil
+	daemonCmd.Stderr = nil
+
+	if err := daemonCmd.Start(); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", InternalError(fmt.Sprintf("starting daemon: %v", err))
+	}
+
+	// Wait for socket
+	for i := 0; i < 100; i++ {
+		if agent.IsRunning(sockPath) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	daemonCmd.Process.Release()
+	return sockPath, nil
+}
+
+// runDaemon is called by the re-exec'd child process.
+func runDaemon(sockPath string) error {
+	dataFile := os.Getenv("_SECRETS_AGENT_DATA")
+	if dataFile == "" {
+		return InternalError("daemon: missing data file")
+	}
+
+	rawPayload, err := os.ReadFile(dataFile)
+	if err != nil {
+		return InternalError("daemon: reading data file")
+	}
+	os.Remove(dataFile)
+
+	var payload daemonPayload
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		return InternalError("daemon: corrupt payload")
+	}
+
+	// Zero raw payload
+	for i := range rawPayload {
+		rawPayload[i] = 0
+	}
+
 	ttl, err := parseTTL(os.Getenv("_SECRETS_AGENT_TTL"))
 	if err != nil {
 		ttl = 8 * time.Hour
 	}
 
-	srv := agent.NewServer(data, sockPath)
+	backend := agebackend.New(payload.Passphrase)
+	srv := agent.NewServer(payload.Data, sockPath, payload.Passphrase, backend, store.Dir())
 	return srv.Start(ttl)
 }
 
@@ -190,4 +231,3 @@ func parseTTL(s string) (time.Duration, error) {
 	}
 	return time.ParseDuration(s)
 }
-

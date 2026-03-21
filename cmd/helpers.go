@@ -2,50 +2,20 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/brickpop/secrets/internal/agent"
-	agebackend "github.com/brickpop/secrets/internal/crypto/age"
 	"github.com/brickpop/secrets/internal/prompt"
 	"github.com/brickpop/secrets/internal/store"
 )
 
-// ReadStore is the interface used by read-only commands (get, ls, export, dump).
-// Both *store.Store and *agentStore satisfy it.
-type ReadStore interface {
-	Get(key string) ([]byte, error)
-	List() []string
-	Close()
-}
-
-// agentStore wraps the agent client behind the ReadStore interface.
-type agentStore struct {
-	sockPath string
-}
-
-func (a *agentStore) Get(key string) ([]byte, error) {
-	val, err := agent.Get(a.sockPath, key)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(val), nil
-}
-
-func (a *agentStore) List() []string {
-	keys, err := agent.List(a.sockPath)
-	if err != nil {
-		return nil
-	}
-	return keys
-}
-
-func (a *agentStore) Close() {}
+const defaultAgentTTL = 8 * time.Hour
 
 // stdinPrompt is a lazily-initialized Prompter backed by os.Stdin.
 // All code must use this instead of prompt.New(os.Stdin, ...) to avoid
-// creating multiple bufio.Readers over the same stdin (which causes
-// data loss when input is piped).
+// creating multiple bufio.Readers over the same stdin.
 var stdinPrompt *prompt.Prompter
 
 func stdinPrompter() *prompt.Prompter {
@@ -55,54 +25,42 @@ func stdinPrompter() *prompt.Prompter {
 	return stdinPrompt
 }
 
-// openStore handles trial-decrypt and passphrase prompting.
-// Returns a read-write *store.Store. Used by set, rm, passwd.
-func openStore() (*store.Store, error) {
-	if !store.Exists() {
-		return nil, UserError("No store found. Run 'secrets init' to create one.")
-	}
-
-	for _, w := range store.CheckPermissions() {
-		fmt.Fprintln(os.Stderr, w)
-	}
-
-	ciphertext, err := os.ReadFile(store.FilePath())
-	if err != nil {
-		return nil, InternalError(fmt.Sprintf("reading store: %v", err))
-	}
-
-	// Trial-decrypt with empty passphrase
-	if plaintext, ok := agebackend.TrialDecryptEmpty(ciphertext); ok {
-		backend := agebackend.New("")
-		s, err := store.OpenFromBytes(plaintext, backend, store.Dir())
-		if err != nil {
-			return nil, InternalError(err.Error())
-		}
-		return s, nil
-	}
-
-	p := stdinPrompter()
-	passphrase, err := p.Passphrase("Passphrase: ")
-	if err != nil {
-		return nil, UserError(err.Error())
-	}
-
-	backend := agebackend.New(passphrase)
-	s, err := store.Open(backend)
-	if err != nil {
-		return nil, UserError("Incorrect passphrase.")
-	}
-	return s, nil
-}
-
-// openStoreReadOnly returns a ReadStore. It tries the agent first
-// (if SECRETS_AGENT_SOCK is set and reachable), falling back to file.
-func openStoreReadOnly() (ReadStore, error) {
+// ensureAgent returns the socket path to a running agent.
+// If no agent is running, it auto-starts one (prompting for passphrase if needed).
+func ensureAgent() (string, error) {
 	sockPath := agentSocketPath()
 	if agent.IsRunning(sockPath) {
-		return &agentStore{sockPath: sockPath}, nil
+		return sockPath, nil
 	}
-	return openStore()
+
+	// Auto-start
+	sockPath, err := startAgent(defaultAgentTTL)
+	if err != nil {
+		return "", err
+	}
+	return sockPath, nil
+}
+
+// withPassphrase runs fn with the trial-passphrase approach.
+// First tries empty passphrase. If agent returns "passphrase required",
+// prompts the user and retries once.
+func withPassphrase(fn func(passphrase string) error) error {
+	err := fn("")
+	if err == nil {
+		return nil
+	}
+
+	if !strings.Contains(err.Error(), agent.ErrPassphraseRequired) {
+		return err
+	}
+
+	// Passphrase required — prompt and retry
+	pass, promptErr := stdinPrompter().Passphrase("Passphrase: ")
+	if promptErr != nil {
+		return UserError(promptErr.Error())
+	}
+
+	return fn(pass)
 }
 
 // agentSocketPath returns the agent socket path.
@@ -111,18 +69,6 @@ func agentSocketPath() string {
 		return sock
 	}
 	return store.Dir() + "/agent.sock"
-}
-
-// tryStopAgent attempts to stop a running agent. Returns true if stopped.
-func tryStopAgent() bool {
-	sockPath := agentSocketPath()
-	conn, err := net.Dial("unix", sockPath)
-	if err != nil {
-		return false
-	}
-	defer conn.Close()
-	_, err = conn.Write([]byte(`{"op":"stop"}` + "\n"))
-	return err == nil
 }
 
 // printManifestHint prints a hint if .secrets.yaml exists in cwd

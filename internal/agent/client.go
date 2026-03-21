@@ -34,6 +34,43 @@ func List(sockPath string) ([]string, error) {
 	return resp.Keys, nil
 }
 
+// Set stores a key-value pair via the agent.
+// Passphrase is required when overwriting an existing key.
+func Set(sockPath, key, value, passphrase string) error {
+	resp, err := roundTrip(sockPath, &Request{Op: "set", Key: key, Value: value, Passphrase: passphrase})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("%s", resp.Error)
+	}
+	return nil
+}
+
+// Delete removes a key via the agent. Passphrase is always required.
+func Delete(sockPath, key, passphrase string) error {
+	resp, err := roundTrip(sockPath, &Request{Op: "delete", Key: key, Passphrase: passphrase})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("%s", resp.Error)
+	}
+	return nil
+}
+
+// Passwd changes the store passphrase via the agent.
+func Passwd(sockPath, oldPass, newPass string) error {
+	resp, err := roundTrip(sockPath, &Request{Op: "passwd", Passphrase: oldPass, NewPassphrase: newPass})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("%s", resp.Error)
+	}
+	return nil
+}
+
 // Stop signals the agent to wipe memory and exit.
 func Stop(sockPath string) error {
 	resp, err := roundTrip(sockPath, &Request{Op: "stop"})
@@ -63,8 +100,9 @@ func roundTrip(sockPath string, req *Request) (*Response, error) {
 	}
 	defer conn.Close()
 
-	// Set deadline for the entire operation
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	// Write operations (set, delete, passwd) do scrypt encryption which
+	// can take ~500ms. Use a generous deadline.
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
 
 	data, err := MarshalRequest(req)
 	if err != nil {
