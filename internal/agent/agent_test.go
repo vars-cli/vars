@@ -215,6 +215,77 @@ func TestIsRunning_NotRunning(t *testing.T) {
 	}
 }
 
+func TestRename(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"OLD_KEY": "value",
+	}, "secret", 0)
+	defer srv.Stop()
+
+	// Basic rename
+	if err := Rename(sockPath, "OLD_KEY", "NEW_KEY", "secret"); err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+
+	// Old key gone
+	if _, err := Get(sockPath, "OLD_KEY"); err == nil {
+		t.Fatal("OLD_KEY should be gone after rename")
+	}
+
+	// New key has the value
+	val, err := Get(sockPath, "NEW_KEY")
+	if err != nil {
+		t.Fatalf("Get NEW_KEY: %v", err)
+	}
+	if val != "value" {
+		t.Fatalf("NEW_KEY = %q, want %q", val, "value")
+	}
+}
+
+func TestRename_WrongPassphrase(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY": "value",
+	}, "secret", 0)
+	defer srv.Stop()
+
+	if err := Rename(sockPath, "KEY", "KEY2", "wrong"); err == nil {
+		t.Fatal("rename with wrong passphrase should fail")
+	}
+
+	// Original key untouched
+	val, _ := Get(sockPath, "KEY")
+	if val != "value" {
+		t.Fatalf("KEY changed despite failed rename: %q", val)
+	}
+}
+
+func TestRename_MissingKey(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{}, "secret", 0)
+	defer srv.Stop()
+
+	if err := Rename(sockPath, "NONEXISTENT", "NEW_KEY", "secret"); err == nil {
+		t.Fatal("rename of missing key should fail")
+	}
+}
+
+func TestRename_DestinationExists(t *testing.T) {
+	sockPath, srv := startTestServer(t, map[string]string{
+		"KEY_A": "a",
+		"KEY_B": "b",
+	}, "secret", 0)
+	defer srv.Stop()
+
+	if err := Rename(sockPath, "KEY_A", "KEY_B", "secret"); err == nil {
+		t.Fatal("rename to existing key should fail")
+	}
+
+	// Both keys unchanged
+	valA, _ := Get(sockPath, "KEY_A")
+	valB, _ := Get(sockPath, "KEY_B")
+	if valA != "a" || valB != "b" {
+		t.Fatalf("keys changed despite failed rename: A=%q B=%q", valA, valB)
+	}
+}
+
 func TestSetAgentTTL(t *testing.T) {
 	// Start with a short TTL, reset to infinite before it fires, then stop via -1.
 	sockPath, _ := startTestServer(t, map[string]string{}, "", 200*time.Millisecond)

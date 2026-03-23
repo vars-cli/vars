@@ -542,6 +542,102 @@ func (*SetAgentTTLResponse) Descriptor() ([]byte, []int) {
 	return file_internal_agent_agent_proto_rawDescGZIP(), []int{11}
 }
 
+type RenameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	Passphrase    string                 `protobuf:"bytes,3,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameRequest) Reset() {
+	*x = RenameRequest{}
+	mi := &file_internal_agent_agent_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameRequest) ProtoMessage() {}
+
+func (x *RenameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_agent_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameRequest.ProtoReflect.Descriptor instead.
+func (*RenameRequest) Descriptor() ([]byte, []int) {
+	return file_internal_agent_agent_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *RenameRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *RenameRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *RenameRequest) GetPassphrase() string {
+	if x != nil {
+		return x.Passphrase
+	}
+	return ""
+}
+
+type RenameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameResponse) Reset() {
+	*x = RenameResponse{}
+	mi := &file_internal_agent_agent_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameResponse) ProtoMessage() {}
+
+func (x *RenameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_agent_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameResponse.ProtoReflect.Descriptor instead.
+func (*RenameResponse) Descriptor() ([]byte, []int) {
+	return file_internal_agent_agent_proto_rawDescGZIP(), []int{13}
+}
+
 var File_internal_agent_agent_proto protoreflect.FileDescriptor
 
 const file_internal_agent_agent_proto_rawDesc = "" +
@@ -577,14 +673,22 @@ const file_internal_agent_agent_proto_rawDesc = "" +
 	"\x0ePasswdResponse\".\n" +
 	"\x12SetAgentTTLRequest\x12\x18\n" +
 	"\aseconds\x18\x01 \x01(\x03R\aseconds\"\x15\n" +
-	"\x13SetAgentTTLResponse2\xca\x02\n" +
+	"\x13SetAgentTTLResponse\"S\n" +
+	"\rRenameRequest\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12\x1e\n" +
+	"\n" +
+	"passphrase\x18\x03 \x01(\tR\n" +
+	"passphrase\"\x10\n" +
+	"\x0eRenameResponse2\x81\x03\n" +
 	"\aSecrets\x12,\n" +
 	"\x03Get\x12\x11.agent.GetRequest\x1a\x12.agent.GetResponse\x12/\n" +
 	"\x04List\x12\x12.agent.ListRequest\x1a\x13.agent.ListResponse\x12,\n" +
 	"\x03Set\x12\x11.agent.SetRequest\x1a\x12.agent.SetResponse\x125\n" +
 	"\x06Delete\x12\x14.agent.DeleteRequest\x1a\x15.agent.DeleteResponse\x125\n" +
 	"\x06Passwd\x12\x14.agent.PasswdRequest\x1a\x15.agent.PasswdResponse\x12D\n" +
-	"\vSetAgentTTL\x12\x19.agent.SetAgentTTLRequest\x1a\x1a.agent.SetAgentTTLResponseB,Z*github.com/brickpop/secrets/internal/agentb\x06proto3"
+	"\vSetAgentTTL\x12\x19.agent.SetAgentTTLRequest\x1a\x1a.agent.SetAgentTTLResponse\x125\n" +
+	"\x06Rename\x12\x14.agent.RenameRequest\x1a\x15.agent.RenameResponseB,Z*github.com/brickpop/secrets/internal/agentb\x06proto3"
 
 var (
 	file_internal_agent_agent_proto_rawDescOnce sync.Once
@@ -598,7 +702,7 @@ func file_internal_agent_agent_proto_rawDescGZIP() []byte {
 	return file_internal_agent_agent_proto_rawDescData
 }
 
-var file_internal_agent_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_internal_agent_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_internal_agent_agent_proto_goTypes = []any{
 	(*GetRequest)(nil),          // 0: agent.GetRequest
 	(*GetResponse)(nil),         // 1: agent.GetResponse
@@ -612,6 +716,8 @@ var file_internal_agent_agent_proto_goTypes = []any{
 	(*PasswdResponse)(nil),      // 9: agent.PasswdResponse
 	(*SetAgentTTLRequest)(nil),  // 10: agent.SetAgentTTLRequest
 	(*SetAgentTTLResponse)(nil), // 11: agent.SetAgentTTLResponse
+	(*RenameRequest)(nil),       // 12: agent.RenameRequest
+	(*RenameResponse)(nil),      // 13: agent.RenameResponse
 }
 var file_internal_agent_agent_proto_depIdxs = []int32{
 	0,  // 0: agent.Secrets.Get:input_type -> agent.GetRequest
@@ -620,14 +726,16 @@ var file_internal_agent_agent_proto_depIdxs = []int32{
 	6,  // 3: agent.Secrets.Delete:input_type -> agent.DeleteRequest
 	8,  // 4: agent.Secrets.Passwd:input_type -> agent.PasswdRequest
 	10, // 5: agent.Secrets.SetAgentTTL:input_type -> agent.SetAgentTTLRequest
-	1,  // 6: agent.Secrets.Get:output_type -> agent.GetResponse
-	3,  // 7: agent.Secrets.List:output_type -> agent.ListResponse
-	5,  // 8: agent.Secrets.Set:output_type -> agent.SetResponse
-	7,  // 9: agent.Secrets.Delete:output_type -> agent.DeleteResponse
-	9,  // 10: agent.Secrets.Passwd:output_type -> agent.PasswdResponse
-	11, // 11: agent.Secrets.SetAgentTTL:output_type -> agent.SetAgentTTLResponse
-	6,  // [6:12] is the sub-list for method output_type
-	0,  // [0:6] is the sub-list for method input_type
+	12, // 6: agent.Secrets.Rename:input_type -> agent.RenameRequest
+	1,  // 7: agent.Secrets.Get:output_type -> agent.GetResponse
+	3,  // 8: agent.Secrets.List:output_type -> agent.ListResponse
+	5,  // 9: agent.Secrets.Set:output_type -> agent.SetResponse
+	7,  // 10: agent.Secrets.Delete:output_type -> agent.DeleteResponse
+	9,  // 11: agent.Secrets.Passwd:output_type -> agent.PasswdResponse
+	11, // 12: agent.Secrets.SetAgentTTL:output_type -> agent.SetAgentTTLResponse
+	13, // 13: agent.Secrets.Rename:output_type -> agent.RenameResponse
+	7,  // [7:14] is the sub-list for method output_type
+	0,  // [0:7] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -644,7 +752,7 @@ func file_internal_agent_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_agent_agent_proto_rawDesc), len(file_internal_agent_agent_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

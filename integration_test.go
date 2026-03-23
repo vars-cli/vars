@@ -534,6 +534,55 @@ keys:
 	}
 }
 
+func TestIntegration_Mv(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "OLD_KEY", "my-value")
+
+	r.mustRun("mv", "OLD_KEY", "NEW_KEY")
+
+	// Old key gone
+	r.mustFail("get", "OLD_KEY")
+
+	// New key has the value
+	val := r.mustRun("get", "NEW_KEY")
+	if val != "my-value" {
+		t.Fatalf("get NEW_KEY = %q, want %q", val, "my-value")
+	}
+}
+
+func TestIntegration_Mv_MissingKey(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	_, stderr := r.mustFail("mv", "NONEXISTENT", "NEW_KEY")
+	if !strings.Contains(stderr, "NONEXISTENT") {
+		t.Fatalf("expected error mentioning key name, got: %s", stderr)
+	}
+}
+
+func TestIntegration_Mv_DestinationExists(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "KEY_A", "a")
+	r.mustRun("set", "KEY_B", "b")
+
+	_, stderr := r.mustFail("mv", "KEY_A", "KEY_B")
+	if !strings.Contains(stderr, "KEY_B") {
+		t.Fatalf("expected error mentioning destination key, got: %s", stderr)
+	}
+
+	// Both keys untouched
+	if r.mustRun("get", "KEY_A") != "a" {
+		t.Fatal("KEY_A should be unchanged")
+	}
+	if r.mustRun("get", "KEY_B") != "b" {
+		t.Fatal("KEY_B should be unchanged")
+	}
+}
+
 func TestIntegration_DumpEmpty(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()

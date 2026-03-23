@@ -127,6 +127,21 @@ func Passwd(sockPath, oldPass, newPass string) error {
 	return statusMsg(err)
 }
 
+// Rename atomically renames a key in the store. Passphrase is always required.
+func Rename(sockPath, from, to, passphrase string) error {
+	conn, err := newConn(sockPath)
+	if err != nil {
+		return fmt.Errorf("connecting to agent: %w", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := ctx30s()
+	defer cancel()
+
+	_, err = NewSecretsClient(conn).Rename(ctx, &RenameRequest{From: from, To: to, Passphrase: passphrase})
+	return statusMsg(err)
+}
+
 // SetAgentTTL adjusts the agent's lifetime.
 // seconds: -1 = stop immediately, 0 = no expiry, >0 = lifetime in seconds.
 func SetAgentTTL(sockPath string, seconds int64) error {

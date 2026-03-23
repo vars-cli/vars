@@ -228,6 +228,35 @@ func (s *Server) Passwd(_ context.Context, req *PasswdRequest) (*PasswdResponse,
 	return &PasswdResponse{}, nil
 }
 
+func (s *Server) Rename(_ context.Context, req *RenameRequest) (*RenameResponse, error) {
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
+
+	if !s.checkPassphrase(req.Passphrase) {
+		return nil, status.Error(codes.PermissionDenied, ErrPassphraseRequired)
+	}
+
+	val, exists := s.data[req.From]
+	if !exists {
+		return nil, status.Error(codes.NotFound, "key not found: "+req.From)
+	}
+	if _, exists := s.data[req.To]; exists {
+		return nil, status.Error(codes.AlreadyExists, "key already exists: "+req.To)
+	}
+
+	s.data[req.To] = val
+	delete(s.data, req.From)
+
+	if err := store.SaveData(s.data, s.backend, s.storeDir); err != nil {
+		// Rollback in-memory state
+		s.data[req.From] = val
+		delete(s.data, req.To)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("saving store: %v", err))
+	}
+
+	return &RenameResponse{}, nil
+}
+
 func (s *Server) SetAgentTTL(_ context.Context, req *SetAgentTTLRequest) (*SetAgentTTLResponse, error) {
 	if req.Seconds < -1 {
 		return nil, status.Error(codes.InvalidArgument, "TTL must be -1 (stop), 0 (infinite), or >0 (seconds)")

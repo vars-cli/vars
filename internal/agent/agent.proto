@@ -11,6 +11,7 @@ service Secrets {
   rpc Delete(DeleteRequest)       returns (DeleteResponse);
   rpc Passwd(PasswdRequest)       returns (PasswdResponse);
   rpc SetAgentTTL(SetAgentTTLRequest) returns (SetAgentTTLResponse);
+  rpc Rename(RenameRequest)           returns (RenameResponse);
 }
 
 message GetRequest    { string key = 1; }
@@ -41,3 +42,10 @@ message PasswdResponse {}
 // seconds: -1 = stop immediately, 0 = no expiry, >0 = lifetime in seconds
 message SetAgentTTLRequest  { int64 seconds = 1; }
 message SetAgentTTLResponse {}
+
+message RenameRequest {
+  string from       = 1;
+  string to         = 2;
+  string passphrase = 3;
+}
+message RenameResponse {}

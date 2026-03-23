@@ -25,6 +25,7 @@ const (
 	Secrets_Delete_FullMethodName      = "/agent.Secrets/Delete"
 	Secrets_Passwd_FullMethodName      = "/agent.Secrets/Passwd"
 	Secrets_SetAgentTTL_FullMethodName = "/agent.Secrets/SetAgentTTL"
+	Secrets_Rename_FullMethodName      = "/agent.Secrets/Rename"
 )
 
 // SecretsClient is the client API for Secrets service.
@@ -37,6 +38,7 @@ type SecretsClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Passwd(ctx context.Context, in *PasswdRequest, opts ...grpc.CallOption) (*PasswdResponse, error)
 	SetAgentTTL(ctx context.Context, in *SetAgentTTLRequest, opts ...grpc.CallOption) (*SetAgentTTLResponse, error)
+	Rename(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*RenameResponse, error)
 }
 
 type secretsClient struct {
@@ -107,6 +109,16 @@ func (c *secretsClient) SetAgentTTL(ctx context.Context, in *SetAgentTTLRequest,
 	return out, nil
 }
 
+func (c *secretsClient) Rename(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*RenameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenameResponse)
+	err := c.cc.Invoke(ctx, Secrets_Rename_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SecretsServer is the server API for Secrets service.
 // All implementations must embed UnimplementedSecretsServer
 // for forward compatibility.
@@ -117,6 +129,7 @@ type SecretsServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Passwd(context.Context, *PasswdRequest) (*PasswdResponse, error)
 	SetAgentTTL(context.Context, *SetAgentTTLRequest) (*SetAgentTTLResponse, error)
+	Rename(context.Context, *RenameRequest) (*RenameResponse, error)
 	mustEmbedUnimplementedSecretsServer()
 }
 
@@ -144,6 +157,9 @@ func (UnimplementedSecretsServer) Passwd(context.Context, *PasswdRequest) (*Pass
 }
 func (UnimplementedSecretsServer) SetAgentTTL(context.Context, *SetAgentTTLRequest) (*SetAgentTTLResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetAgentTTL not implemented")
+}
+func (UnimplementedSecretsServer) Rename(context.Context, *RenameRequest) (*RenameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Rename not implemented")
 }
 func (UnimplementedSecretsServer) mustEmbedUnimplementedSecretsServer() {}
 func (UnimplementedSecretsServer) testEmbeddedByValue()                 {}
@@ -274,6 +290,24 @@ func _Secrets_SetAgentTTL_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Secrets_Rename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretsServer).Rename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Secrets_Rename_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretsServer).Rename(ctx, req.(*RenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Secrets_ServiceDesc is the grpc.ServiceDesc for Secrets service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +338,10 @@ var Secrets_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAgentTTL",
 			Handler:    _Secrets_SetAgentTTL_Handler,
+		},
+		{
+			MethodName: "Rename",
+			Handler:    _Secrets_Rename_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
