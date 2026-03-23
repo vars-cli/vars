@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	cobra.EnableCommandSorting = false
+}
+
 // Version is set at build time via ldflags.
 var Version = "dev"
 
