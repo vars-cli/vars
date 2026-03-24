@@ -1,28 +1,20 @@
 # secrets
 
-One encrypted store for all your environment variable secrets, shared across any number of projects.
+One encrypted store for all your environment variables, shared across any number of projects.
 
 ---
 
-If you work across many repositories — each with its own `.env` file full of private keys, RPC URLs, and API tokens — you've felt the pain: secrets duplicated everywhere, rotations that miss half the repos, files that accidentally get committed.
+If you work across many repositories — each with its own `.env` file full of private keys, RPC URLs, and API tokens — you've felt the pain: secrets duplicated everywhere, rotations that miss half the repos, files that accidentally get committed or read by an agent.
 
-`secrets` keeps all your secrets in one age-encrypted store and exports them as environment variables on demand. It is **opt-in and non-breaking**: projects that don't use it keep working exactly as before. Projects that do opt in commit a `.secrets.yaml` listing the variable names they need — no values, just names — and each developer resolves them from their own personal store.
+`secrets` keeps all your secrets in one age-encrypted store and exports them as environment variables on demand, making `.env` files entirely optional. It is **opt-in and non-breaking**: collaborators that don't use it keep operating as before. Projects that do, commit a `.secrets.yaml` listing the variable names they need and developers can resolve them from their own personal store.
 
-It is **local-first and offline capable** — no server, no cloud dependency, no account. It works on a plane. It scales from a solo developer to a team using shared naming conventions and profiles. The store is a single encrypted file you can back up, sync, or leave alone.
+It is **local-first and offline friendly** — no server, no cloud dependency, no account. It scales from a solo developer to a team using optional scopes and profiles. The store is a single encrypted file that you can back up, sync, or leave alone.
 
-It exports env vars. What you do with them is up to you.
+`secrets` loads env vars on your session. What you do with them is up to you.
 
 ---
 
 ## Install
-
-**From source:**
-
-```sh
-go install github.com/brickpop/secrets@latest
-```
-
-**From GitHub releases:**
 
 ```sh
 # macOS (Apple Silicon)
@@ -38,7 +30,7 @@ sudo mv secrets /usr/local/bin/
 
 ## The basics — your personal store
 
-Start by creating an encrypted store. A passphrase is optional — press enter for none.
+Start by creating an encrypted store. An encryption passphrase can be chosen — press enter for none.
 
 ```sh
 secrets init
@@ -61,17 +53,6 @@ secrets ls                           # lists all keys (global scope)
 
 One place for all your keys, encrypted at rest, accessible from any terminal.
 
-Every time you overwrite a key, the previous value is saved as a backup. Retrieve it if you need it:
-
-```sh
-secrets history RPC_URL
-# RPC_URL~3:	https://rpc-v2.example.com
-# RPC_URL~2:	https://rpc-v1.example.com
-# RPC_URL~1:	https://rpc-old.example.com
-```
-
-The label matches the actual key stored. In the example, `RPC_URL~3` is the most recent backup, `RPC_URL~1` is the oldest.
-
 ---
 
 ## Using in a project
@@ -90,7 +71,7 @@ Then resolve them into your shell, on demand:
 
 ```sh
 eval "$(secrets resolve)"          # bash/zsh
-echo $ETHERSCAN_API_KEY            # Exported env vars
+echo $ETHERSCAN_API_KEY            # Loaded as env vars
 ```
 
 `resolve` reads the manifest, looks up each key in your store, and prints shell-ready `export` statements. Nothing is written to disk.
@@ -123,7 +104,7 @@ secrets scope ls             # list all scope prefixes present in the store
 
 ## Profiles — resolving the right scope
 
-Once your keys are scoped, you need a way for `resolve` to know which scope to use for each run. That's what `profiles` are for: a list of `env var → store key` mappings, declared in `.secrets.yaml`.
+If you have scoped variables, you will need `resolve` to know which scope to use for each run. That's what `profiles` are for: a list of `env var → store key` mappings, declared in `.secrets.yaml`.
 
 ```yaml
 # .secrets.yaml
@@ -218,13 +199,6 @@ docker run --env-file <(secrets resolve --format dotenv) my-image
 
 `--env-file` reads from the file descriptor provided by `<(...)` — the output of `secrets resolve` never touches the filesystem.
 
-### Renaming and removing keys
-
-```sh
-secrets mv OLD_KEY NEW_KEY    # atomic rename
-secrets rm OLD_KEY            # delete key and its history
-```
-
 ### Migrating from `.env` files
 
 ```sh
@@ -250,6 +224,24 @@ sync-from-op:
 Run the recipe during onboarding or after a rotation. Keys already present are left untouched (`--skip`); use `--overwrite` to force an update.
 
 The same pattern works for HashiCorp Vault (`vault kv get`), AWS Secrets Manager (`aws secretsmanager get-secret-value`), or any CLI that prints a secret to stdout.
+
+### Renaming and removing keys
+
+```sh
+secrets mv OLD_KEY NEW_KEY    # atomic rename
+secrets rm OLD_KEY            # delete key and its history
+```
+
+Every time you overwrite a key, the current value is saved as a backup. Retrieve it if you need it:
+
+```sh
+secrets history RPC_URL
+# RPC_URL~3:	https://rpc-v2.example.com
+# RPC_URL~2:	https://rpc-v1.example.com
+# RPC_URL~1:	https://rpc-old.example.com
+```
+
+The label matches the actual key stored. In the example, `RPC_URL~3` is the most recent backup, `RPC_URL~1` is the oldest.
 
 ---
 
