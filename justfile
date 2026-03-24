@@ -100,11 +100,10 @@ install:
 # Cross-compile for all supported platforms
 [group('build')]
 cross-compile:
-    GOOS=darwin  GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-arm64  .
-    GOOS=darwin  GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-amd64  .
-    GOOS=linux   GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-amd64   .
-    GOOS=linux   GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-arm64   .
-    GOOS=windows GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-windows-amd64.exe .
+    GOOS=darwin GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-arm64 .
+    GOOS=darwin GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-amd64 .
+    GOOS=linux  GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-amd64  .
+    GOOS=linux  GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-arm64  .
 
 # Quick end-to-end smoke test against a temp store
 [group('test')]
