@@ -13,28 +13,38 @@ import (
 )
 
 var (
-	importSuffix    string
 	importOverwrite bool
 	importSkip      bool
 )
 
 func init() {
-	importCmd.Flags().StringVar(&importSuffix, "suffix", "", "Append _<suffix> to all key names (e.g. --suffix dev → KEY_dev)")
 	importCmd.Flags().BoolVar(&importOverwrite, "overwrite", false, "Overwrite conflicting keys without prompting")
 	importCmd.Flags().BoolVar(&importSkip, "skip", false, "Skip conflicting keys without prompting")
 	rootCmd.AddCommand(importCmd)
 }
 
 var importCmd = &cobra.Command{
-	Use:   "import <file>",
+	Use:   "import [scope] <file>",
 	Short: "Import keys from a .env file",
-	Args:  cobra.ExactArgs(1),
+	Long: `Import key-value pairs from a .env file into the store.
+
+Without a scope, keys are imported into the default scope.
+With a scope, keys are prefixed: secrets import prod .env → prod/KEY.`,
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if importOverwrite && importSkip {
 			return UserError("--overwrite and --skip are mutually exclusive")
 		}
 
-		f, err := os.Open(args[0])
+		var scope, filePath string
+		if len(args) == 2 {
+			scope = args[0]
+			filePath = args[1]
+		} else {
+			filePath = args[0]
+		}
+
+		f, err := os.Open(filePath)
 		if err != nil {
 			return UserError(fmt.Sprintf("opening file: %v", err))
 		}
@@ -49,10 +59,10 @@ var importCmd = &cobra.Command{
 			return nil
 		}
 
-		// Apply suffix (strip leading _ if provided, then join with _)
-		if sfx := strings.TrimPrefix(importSuffix, "_"); sfx != "" {
+		// Apply scope prefix
+		if scope != "" {
 			for i := range entries {
-				entries[i].Key = entries[i].Key + "_" + sfx
+				entries[i].Key = scope + "/" + entries[i].Key
 			}
 		}
 

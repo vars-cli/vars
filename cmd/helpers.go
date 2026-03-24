@@ -65,14 +65,18 @@ func agentSocketPath() string {
 }
 
 // printManifestHint prints a hint if .secrets.yaml exists in cwd
-// and the key is not listed in it.
+// and the key is not listed in it. Strips scope prefix before checking
+// so that "prod/RPC_URL" correctly matches "- RPC_URL" in the manifest.
 func printManifestHint(key string) {
 	data, err := os.ReadFile(".secrets.yaml")
 	if err != nil {
 		return
 	}
-	content := string(data)
-	if !containsKey(content, key) {
+	bareKey := key
+	if i := strings.IndexByte(key, '/'); i >= 0 {
+		bareKey = key[i+1:]
+	}
+	if !containsKey(string(data), bareKey) {
 		fmt.Fprintf(os.Stderr, "Hint: %q is not listed in .secrets.yaml. Consider adding it.\n", key)
 	}
 }

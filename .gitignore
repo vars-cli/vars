@@ -7,7 +7,7 @@ dist/
 
 # Environment files
 *.env
-.secrets-map.yaml
+.secrets.local.yaml
 
 # OS
 .DS_Store

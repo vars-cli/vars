@@ -264,8 +264,7 @@ func TestIntegration_ResolvePosix(t *testing.T) {
 	r.mustRun("set", "RPC_URL", "https://rpc.example.com")
 	r.mustRun("set", "PRIVATE_KEY", "0xTESTKEY")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - RPC_URL
   - PRIVATE_KEY
 `)
@@ -285,8 +284,7 @@ func TestIntegration_ResolveFish(t *testing.T) {
 
 	r.mustRun("set", "MY_VAR", "hello world")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - MY_VAR
 `)
 
@@ -302,8 +300,7 @@ func TestIntegration_ResolveDotenv(t *testing.T) {
 
 	r.mustRun("set", "MY_VAR", "hello world")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - MY_VAR
 `)
 
@@ -313,17 +310,17 @@ keys:
 	}
 }
 
-func TestIntegration_ResolveMapFile(t *testing.T) {
+func TestIntegration_ResolveLocalMappings(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
 	r.mustRun("set", "PRIVATE_KEY", "0xGLOBALKEY")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - PROJECT_PK
 `)
-	r.writeFile(".secrets-map.yaml", `PROJECT_PK: PRIVATE_KEY
+	r.writeFile(".secrets.local.yaml", `mappings:
+  PROJECT_PK: PRIVATE_KEY
 `)
 
 	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
@@ -341,8 +338,7 @@ func TestIntegration_ResolvePartial(t *testing.T) {
 
 	r.mustRun("set", "EXISTS", "value")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - EXISTS
   - MISSING
 `)
@@ -539,8 +535,7 @@ func TestIntegration_ResolveInvalidFormat(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - KEY
 `)
 
@@ -558,26 +553,24 @@ func TestIntegration_Version(t *testing.T) {
 	}
 }
 
-func TestIntegration_ResolveCustomMapFile(t *testing.T) {
+func TestIntegration_ResolveCommittedMappings(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
 	r.mustRun("set", "GLOBAL_TOKEN", "tok123")
 
-	r.writeFile(".secrets.yaml", `project: test
-map: custom-map.yaml
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - LOCAL_TOKEN
-`)
-	r.writeFile("custom-map.yaml", `LOCAL_TOKEN: GLOBAL_TOKEN
+mappings:
+  LOCAL_TOKEN: GLOBAL_TOKEN
 `)
 
 	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
 	if !strings.Contains(out, "LOCAL_TOKEN") {
-		t.Fatalf("custom map export missing LOCAL_TOKEN: %s", out)
+		t.Fatalf("committed mappings missing LOCAL_TOKEN: %s", out)
 	}
 	if !strings.Contains(out, "tok123") {
-		t.Fatalf("custom map export has wrong value: %s", out)
+		t.Fatalf("committed mappings has wrong value: %s", out)
 	}
 }
 
@@ -681,29 +674,94 @@ func TestIntegration_Import_Clean(t *testing.T) {
 	}
 }
 
-func TestIntegration_Import_Suffix(t *testing.T) {
+func TestIntegration_Import_Scope(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
 	r.writeFile(".env", "RPC_URL=https://rpc.example.com\n")
-	r.mustRun("import", filepath.Join(r.workDir, ".env"), "--suffix", "dev")
+	r.mustRun("import", "dev", filepath.Join(r.workDir, ".env"))
 
 	r.mustFail("get", "RPC_URL")
-	if r.mustRun("get", "RPC_URL_dev") != "https://rpc.example.com" {
-		t.Fatal("RPC_URL_dev not imported")
+	if r.mustRun("get", "dev/RPC_URL") != "https://rpc.example.com" {
+		t.Fatal("dev/RPC_URL not imported")
 	}
 }
 
-func TestIntegration_Import_SuffixLeadingUnderscore(t *testing.T) {
+func TestIntegration_Ls_Scope(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	r.writeFile(".env", "RPC_URL=https://rpc.example.com\n")
-	// --suffix _dev and --suffix dev should be equivalent
-	r.mustRun("import", filepath.Join(r.workDir, ".env"), "--suffix", "_dev")
+	r.mustRun("set", "GLOBAL_KEY", "g")
+	r.mustRun("set", "prod/KEY_A", "a")
+	r.mustRun("set", "prod/KEY_B", "b")
+	r.mustRun("set", "staging/KEY_A", "sa")
 
-	if r.mustRun("get", "RPC_URL_dev") != "https://rpc.example.com" {
-		t.Fatal("RPC_URL_dev not imported with leading underscore suffix")
+	// ls (default scope) — only GLOBAL_KEY
+	out := r.mustRun("ls")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 || lines[0] != "GLOBAL_KEY" {
+		t.Fatalf("ls: expected [GLOBAL_KEY], got %v", lines)
+	}
+
+	// ls prod — KEY_A and KEY_B without prefix
+	out = r.mustRun("ls", "prod")
+	lines = strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 || lines[0] != "KEY_A" || lines[1] != "KEY_B" {
+		t.Fatalf("ls prod: expected [KEY_A KEY_B], got %v", lines)
+	}
+
+	// ls staging — KEY_A without prefix
+	out = r.mustRun("ls", "staging")
+	lines = strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 || lines[0] != "KEY_A" {
+		t.Fatalf("ls staging: expected [KEY_A], got %v", lines)
+	}
+}
+
+func TestIntegration_Resolve_Profile(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "prod/RPC_URL", "https://prod.rpc")
+	r.mustRun("set", "ETHERSCAN_API", "shared-key")
+
+	r.writeFile(".secrets.yaml", `keys:
+  - RPC_URL
+  - ETHERSCAN_API
+profiles:
+  mainnet:
+    RPC_URL: prod/RPC_URL
+`)
+
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	if !strings.Contains(out, "https://prod.rpc") {
+		t.Fatalf("expected profile RPC_URL, got: %s", out)
+	}
+	if !strings.Contains(out, "shared-key") {
+		t.Fatalf("expected bare ETHERSCAN_API, got: %s", out)
+	}
+}
+
+func TestIntegration_Resolve_LocalProfileOverride(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "prod/PRIVATE_KEY_alice", "0xALICE")
+
+	r.writeFile(".secrets.yaml", `keys:
+  - PRIVATE_KEY
+profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY_team
+`)
+	r.writeFile(".secrets.local.yaml", `profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY_alice
+`)
+
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	if !strings.Contains(out, "0xALICE") {
+		t.Fatalf("local profile should override committed: got %s", out)
 	}
 }
 
@@ -776,6 +834,59 @@ func TestIntegration_DumpEmpty(t *testing.T) {
 	}
 }
 
+func TestIntegration_Scopes(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "BARE_KEY", "bare")
+	r.mustRun("set", "prod/RPC_URL", "p1")
+	r.mustRun("set", "prod/PRIVATE_KEY", "p2")
+	r.mustRun("set", "staging/RPC_URL", "s1")
+
+	out := r.mustRun("scope", "ls")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("scopes returned %d lines, want 2: %v", len(lines), lines)
+	}
+	if lines[0] != "prod" || lines[1] != "staging" {
+		t.Fatalf("scopes = %v, want [prod staging]", lines)
+	}
+}
+
+func TestIntegration_Scopes_Hierarchical(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "main/dev/RPC_URL", "v1")
+	r.mustRun("set", "main/RPC_URL", "v2")
+	r.mustRun("set", "prod/KEY", "v3")
+
+	out := r.mustRun("scope", "ls")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	// expect: main, main/dev, prod — sorted
+	want := []string{"main", "main/dev", "prod"}
+	if len(lines) != len(want) {
+		t.Fatalf("scopes = %v, want %v", lines, want)
+	}
+	for i, w := range want {
+		if lines[i] != w {
+			t.Fatalf("scopes[%d] = %q, want %q", i, lines[i], w)
+		}
+	}
+}
+
+func TestIntegration_Scopes_Empty(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "BARE_KEY", "bare")
+
+	out := r.mustRun("scope", "ls")
+	if strings.TrimSpace(out) != "" {
+		t.Fatalf("scopes with no scoped keys should be empty, got: %q", out)
+	}
+}
+
 func TestIntegration_ResolveOrderPreserved(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
@@ -784,8 +895,7 @@ func TestIntegration_ResolveOrderPreserved(t *testing.T) {
 	r.mustRun("set", "ALPHA", "a")
 	r.mustRun("set", "MIKE", "m")
 
-	r.writeFile(".secrets.yaml", `project: test
-keys:
+	r.writeFile(".secrets.yaml", `keys:
   - MIKE
   - ZEBRA
   - ALPHA
@@ -804,5 +914,73 @@ keys:
 	}
 	if !strings.Contains(lines[2], "ALPHA") {
 		t.Fatalf("third line should contain ALPHA, got: %s", lines[2])
+	}
+}
+
+func TestIntegration_Resolve_DefaultProfile(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "prod/RPC_URL", "https://prod.rpc")
+	r.mustRun("set", "ETHERSCAN_API", "shared-key")
+
+	r.writeFile(".secrets.yaml", `keys:
+  - RPC_URL
+  - ETHERSCAN_API
+profiles:
+  default:
+    RPC_URL: prod/RPC_URL
+`)
+
+	// No --profile flag: "default" profile is auto-applied
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	if !strings.Contains(out, "https://prod.rpc") {
+		t.Fatalf("default profile should be auto-applied: got %s", out)
+	}
+	if !strings.Contains(out, "shared-key") {
+		t.Fatalf("bare key fallback should still work: got %s", out)
+	}
+}
+
+func TestIntegration_Resolve_HierarchicalFallback(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	// Only the base key exists; manifest maps to a more-specific key
+	r.mustRun("set", "RPC_URL", "https://base.rpc")
+
+	r.writeFile(".secrets.yaml", `keys:
+  - RPC_URL
+profiles:
+  mainnet:
+    RPC_URL: main/dev/RPC_URL
+`)
+
+	// main/dev/RPC_URL not in store → main/RPC_URL not in store → RPC_URL found
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	if !strings.Contains(out, "https://base.rpc") {
+		t.Fatalf("hierarchical fallback should resolve to base key: got %s", out)
+	}
+}
+
+func TestIntegration_Ls_All(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "BARE_KEY", "b")
+	r.mustRun("set", "prod/RPC_URL", "p")
+	r.mustRun("set", "staging/API_KEY", "s")
+
+	out := r.mustRun("ls", "--all")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("ls --all should list 3 keys, got: %v", lines)
+	}
+
+	// Default ls still only shows unscoped keys
+	out = r.mustRun("ls")
+	lines = strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 1 || lines[0] != "BARE_KEY" {
+		t.Fatalf("ls should only show unscoped keys, got: %v", lines)
 	}
 }

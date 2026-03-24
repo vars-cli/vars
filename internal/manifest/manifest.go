@@ -1,20 +1,25 @@
-// Package manifest parses .secrets.yaml and .secrets-map.yaml files
+// Package manifest parses .secrets.yaml and .secrets.local.yaml
 // and resolves variable names to store keys.
 package manifest
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Manifest represents a parsed .secrets.yaml file.
+// Manifest represents a parsed .secrets.yaml file (committed, team-owned).
 type Manifest struct {
-	Project string   `yaml:"project"`
-	Keys    []string `yaml:"keys"`
-	MapFile string   `yaml:"map"`
+	Keys     []string                     `yaml:"keys"`
+	Mappings map[string]string            `yaml:"mappings"`
+	Profiles map[string]map[string]string `yaml:"profiles"`
+}
+
+// LocalManifest represents a parsed .secrets.local.yaml file (personal, git-ignored).
+type LocalManifest struct {
+	Mappings map[string]string            `yaml:"mappings"`
+	Profiles map[string]map[string]string `yaml:"profiles"`
 }
 
 // ResolvedVar is a variable name mapped to its store key.
@@ -38,61 +43,98 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("parsing manifest: %w", err)
 	}
 
-	// Deduplicate keys while preserving order
 	m.Keys = dedup(m.Keys)
-
-	// Default map file
-	if m.MapFile == "" {
-		m.MapFile = ".secrets-map.yaml"
-	}
-
 	return &m, nil
 }
 
-// LoadMap parses a .secrets-map.yaml file (simple key→value YAML dict).
-// Returns an empty map if the file does not exist.
-func LoadMap(path string) (map[string]string, error) {
+// LoadLocal parses a .secrets.local.yaml file (personal overrides, git-ignored).
+// Returns an empty LocalManifest if the file does not exist.
+func LoadLocal(path string) (*LocalManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return make(map[string]string), nil
+			return &LocalManifest{}, nil
 		}
-		return nil, fmt.Errorf("reading map file: %w", err)
+		return nil, fmt.Errorf("reading local manifest: %w", err)
 	}
 
-	m := make(map[string]string)
+	var m LocalManifest
 	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("parsing map file: %w", err)
+		return nil, fmt.Errorf("parsing local manifest: %w", err)
 	}
-	return m, nil
+	return &m, nil
 }
 
-// Resolve maps each manifest key to a store key using the map file.
-// The map file is looked for alongside the manifest.
-func Resolve(manifestPath string) ([]ResolvedVar, error) {
+// Resolve maps each manifest key to a store key.
+// localPath is the path to .secrets.local.yaml (may not exist).
+// profile is the active profile name (empty string = auto-detect "default" if present).
+//
+// Resolution priority for each key:
+//  1. Active profile, local file override
+//  2. Active profile, committed manifest
+//  3. Local mappings
+//  4. Committed mappings
+//  5. Bare key (identity)
+func Resolve(manifestPath, localPath, profile string) ([]ResolvedVar, error) {
 	m, err := Load(manifestPath)
 	if err != nil {
 		return nil, err
 	}
 
-	mapPath := filepath.Join(filepath.Dir(manifestPath), m.MapFile)
-	mapping, err := LoadMap(mapPath)
+	local, err := LoadLocal(localPath)
 	if err != nil {
 		return nil, err
 	}
 
+	// Auto-apply "default" profile when no profile is specified and one exists.
+	if profile == "" {
+		if _, ok := m.Profiles["default"]; ok {
+			profile = "default"
+		} else if _, ok := local.Profiles["default"]; ok {
+			profile = "default"
+		}
+	}
+
 	vars := make([]ResolvedVar, 0, len(m.Keys))
 	for _, key := range m.Keys {
-		storeKey := key
-		if mapped, ok := mapping[key]; ok {
-			storeKey = mapped
-		}
 		vars = append(vars, ResolvedVar{
 			EnvName:  key,
-			StoreKey: storeKey,
+			StoreKey: resolveKey(key, profile, m, local),
 		})
 	}
 	return vars, nil
+}
+
+// resolveKey returns the store key for a given env var name.
+func resolveKey(key, profile string, m *Manifest, local *LocalManifest) string {
+	if profile != "" {
+		// Local profile override takes precedence over committed profile
+		if local.Profiles != nil {
+			if profMap, ok := local.Profiles[profile]; ok {
+				if v, ok := profMap[key]; ok {
+					return v
+				}
+			}
+		}
+		if m.Profiles != nil {
+			if profMap, ok := m.Profiles[profile]; ok {
+				if v, ok := profMap[key]; ok {
+					return v
+				}
+			}
+		}
+	}
+	if local.Mappings != nil {
+		if v, ok := local.Mappings[key]; ok {
+			return v
+		}
+	}
+	if m.Mappings != nil {
+		if v, ok := m.Mappings[key]; ok {
+			return v
+		}
+	}
+	return key
 }
 
 // dedup removes duplicate strings while preserving order.

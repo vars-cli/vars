@@ -16,33 +16,43 @@ func writeFile(t *testing.T, dir, name, content string) string {
 	return path
 }
 
+// --- Load ---
+
 func TestLoad_Valid(t *testing.T) {
 	dir := t.TempDir()
 	path := writeFile(t, dir, ".secrets.yaml", `
-project: myproject
 keys:
-  - FOUNDRY_PROFILE
-  - RPC_URL_MAINNET
   - PRIVATE_KEY
-map: .secrets-map.yaml
+  - RPC_URL
+  - ETHERSCAN_API
+mappings:
+  PRIVATE_KEY: prod/PRIVATE_KEY
+profiles:
+  mainnet:
+    RPC_URL: prod/RPC_URL
+  sepolia:
+    RPC_URL: sepolia/RPC_URL
 `)
 
 	m, err := Load(path)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if m.Project != "myproject" {
-		t.Fatalf("Project = %q, want %q", m.Project, "myproject")
-	}
 	if len(m.Keys) != 3 {
 		t.Fatalf("Keys len = %d, want 3", len(m.Keys))
 	}
-	if m.MapFile != ".secrets-map.yaml" {
-		t.Fatalf("MapFile = %q, want .secrets-map.yaml", m.MapFile)
+	if m.Mappings["PRIVATE_KEY"] != "prod/PRIVATE_KEY" {
+		t.Fatalf("Mappings[PRIVATE_KEY] = %q", m.Mappings["PRIVATE_KEY"])
+	}
+	if m.Profiles["mainnet"]["RPC_URL"] != "prod/RPC_URL" {
+		t.Fatalf("Profiles[mainnet][RPC_URL] = %q", m.Profiles["mainnet"]["RPC_URL"])
+	}
+	if m.Profiles["sepolia"]["RPC_URL"] != "sepolia/RPC_URL" {
+		t.Fatalf("Profiles[sepolia][RPC_URL] = %q", m.Profiles["sepolia"]["RPC_URL"])
 	}
 }
 
-func TestLoad_NoProject(t *testing.T) {
+func TestLoad_KeysOnly(t *testing.T) {
 	dir := t.TempDir()
 	path := writeFile(t, dir, ".secrets.yaml", `
 keys:
@@ -54,44 +64,14 @@ keys:
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if m.Project != "" {
-		t.Fatalf("Project should be empty, got %q", m.Project)
-	}
 	if len(m.Keys) != 2 {
 		t.Fatalf("Keys len = %d, want 2", len(m.Keys))
 	}
-}
-
-func TestLoad_DefaultMapFile(t *testing.T) {
-	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
-keys:
-  - FOO
-`)
-
-	m, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	if len(m.Mappings) != 0 {
+		t.Fatalf("Mappings should be empty, got %v", m.Mappings)
 	}
-	if m.MapFile != ".secrets-map.yaml" {
-		t.Fatalf("MapFile = %q, want .secrets-map.yaml", m.MapFile)
-	}
-}
-
-func TestLoad_CustomMapFile(t *testing.T) {
-	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
-keys:
-  - FOO
-map: custom-map.yaml
-`)
-
-	m, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if m.MapFile != "custom-map.yaml" {
-		t.Fatalf("MapFile = %q, want custom-map.yaml", m.MapFile)
+	if len(m.Profiles) != 0 {
+		t.Fatalf("Profiles should be empty, got %v", m.Profiles)
 	}
 }
 
@@ -123,10 +103,7 @@ keys:
 
 func TestLoad_EmptyKeys(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
-project: test
-keys: []
-`)
+	path := writeFile(t, dir, ".secrets.yaml", `keys: []`)
 
 	m, err := Load(path)
 	if err != nil {
@@ -149,9 +126,7 @@ func TestLoad_NotFound(t *testing.T) {
 
 func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
-keys: [[[invalid
-`)
+	path := writeFile(t, dir, ".secrets.yaml", `keys: [[[invalid`)
 
 	_, err := Load(path)
 	if err == nil {
@@ -162,10 +137,9 @@ keys: [[[invalid
 func TestLoad_UnknownFields(t *testing.T) {
 	dir := t.TempDir()
 	path := writeFile(t, dir, ".secrets.yaml", `
-project: test
 keys:
   - FOO
-future_field: something
+unknown_field: something
 another: 42
 `)
 
@@ -178,46 +152,53 @@ another: 42
 	}
 }
 
-func TestLoadMap_Valid(t *testing.T) {
+// --- LoadLocal ---
+
+func TestLoadLocal_Valid(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets-map.yaml", `
-PRIVATE_KEY: PRIVATE_KEY_alice
-RPC_URL_MAINNET: RPC_URL_quicknode
+	path := writeFile(t, dir, ".secrets.local.yaml", `
+mappings:
+  PRIVATE_KEY: prod/PRIVATE_KEY_alice
+profiles:
+  mainnet:
+    RPC_URL: prod/RPC_URL_quicknode
 `)
 
-	m, err := LoadMap(path)
+	local, err := LoadLocal(path)
 	if err != nil {
-		t.Fatalf("LoadMap: %v", err)
+		t.Fatalf("LoadLocal: %v", err)
 	}
-	if m["PRIVATE_KEY"] != "PRIVATE_KEY_alice" {
-		t.Fatalf("PRIVATE_KEY = %q", m["PRIVATE_KEY"])
+	if local.Mappings["PRIVATE_KEY"] != "prod/PRIVATE_KEY_alice" {
+		t.Fatalf("Mappings[PRIVATE_KEY] = %q", local.Mappings["PRIVATE_KEY"])
 	}
-	if m["RPC_URL_MAINNET"] != "RPC_URL_quicknode" {
-		t.Fatalf("RPC_URL_MAINNET = %q", m["RPC_URL_MAINNET"])
+	if local.Profiles["mainnet"]["RPC_URL"] != "prod/RPC_URL_quicknode" {
+		t.Fatalf("Profiles[mainnet][RPC_URL] = %q", local.Profiles["mainnet"]["RPC_URL"])
 	}
 }
 
-func TestLoadMap_NotFound(t *testing.T) {
-	m, err := LoadMap("/nonexistent/.secrets-map.yaml")
+func TestLoadLocal_NotFound(t *testing.T) {
+	local, err := LoadLocal("/nonexistent/.secrets.local.yaml")
 	if err != nil {
-		t.Fatalf("LoadMap nonexistent should not error: %v", err)
+		t.Fatalf("LoadLocal nonexistent should not error: %v", err)
 	}
-	if len(m) != 0 {
-		t.Fatalf("LoadMap nonexistent should return empty map, got %v", m)
+	if local.Mappings != nil || local.Profiles != nil {
+		t.Fatalf("LoadLocal nonexistent should return empty, got %+v", local)
 	}
 }
 
-func TestLoadMap_InvalidYAML(t *testing.T) {
+func TestLoadLocal_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets-map.yaml", `[[[invalid`)
+	path := writeFile(t, dir, ".secrets.local.yaml", `[[[invalid`)
 
-	_, err := LoadMap(path)
+	_, err := LoadLocal(path)
 	if err == nil {
 		t.Fatal("invalid YAML should fail")
 	}
 }
 
-func TestResolve_NoMapFile(t *testing.T) {
+// --- Resolve ---
+
+func TestResolve_NoMappings(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeFile(t, dir, ".secrets.yaml", `
 keys:
@@ -225,45 +206,39 @@ keys:
   - BAR
 `)
 
-	vars, err := Resolve(manifestPath)
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if len(vars) != 2 {
 		t.Fatalf("vars len = %d, want 2", len(vars))
 	}
-	// Without map file, store key == env name
 	for _, v := range vars {
 		if v.EnvName != v.StoreKey {
-			t.Fatalf("without map, EnvName %q should equal StoreKey %q", v.EnvName, v.StoreKey)
+			t.Fatalf("without mappings, EnvName %q should equal StoreKey %q", v.EnvName, v.StoreKey)
 		}
 	}
 }
 
-func TestResolve_WithMapFile(t *testing.T) {
+func TestResolve_CommittedMappings(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeFile(t, dir, ".secrets.yaml", `
 keys:
   - FOO
   - BAR
   - BAZ
-`)
-	writeFile(t, dir, ".secrets-map.yaml", `
-FOO: FOO_remapped
-BAZ: BAZ_personal
+mappings:
+  FOO: FOO_remapped
+  BAZ: BAZ_personal
 `)
 
-	vars, err := Resolve(manifestPath)
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if len(vars) != 3 {
-		t.Fatalf("vars len = %d, want 3", len(vars))
-	}
-
 	expected := map[string]string{
 		"FOO": "FOO_remapped",
-		"BAR": "BAR",         // not in map → identity
+		"BAR": "BAR",          // not in mappings → identity
 		"BAZ": "BAZ_personal",
 	}
 	for _, v := range vars {
@@ -274,47 +249,113 @@ BAZ: BAZ_personal
 	}
 }
 
-func TestResolve_ExtraMapKeysIgnored(t *testing.T) {
+func TestResolve_LocalMappingsOverride(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeFile(t, dir, ".secrets.yaml", `
 keys:
   - FOO
+mappings:
+  FOO: FOO_team
 `)
-	writeFile(t, dir, ".secrets-map.yaml", `
-FOO: FOO_mapped
-EXTRA_KEY: not_in_manifest
-ANOTHER: also_not_in_manifest
+	localPath := writeFile(t, dir, ".secrets.local.yaml", `
+mappings:
+  FOO: FOO_alice
 `)
 
-	vars, err := Resolve(manifestPath)
+	vars, err := Resolve(manifestPath, localPath, "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if len(vars) != 1 {
-		t.Fatalf("vars len = %d, want 1 (extra keys should be ignored)", len(vars))
-	}
-	if vars[0].StoreKey != "FOO_mapped" {
-		t.Fatalf("StoreKey = %q, want FOO_mapped", vars[0].StoreKey)
+	if vars[0].StoreKey != "FOO_alice" {
+		t.Fatalf("local mapping should override committed: got %q", vars[0].StoreKey)
 	}
 }
 
-func TestResolve_CustomMapFileName(t *testing.T) {
+func TestResolve_Profile(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeFile(t, dir, ".secrets.yaml", `
 keys:
-  - FOO
-map: my-custom-map.yaml
-`)
-	writeFile(t, dir, "my-custom-map.yaml", `
-FOO: FOO_custom
+  - PRIVATE_KEY
+  - RPC_URL
+  - ETHERSCAN_API
+profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY
+    RPC_URL: prod/RPC_URL
+  sepolia:
+    PRIVATE_KEY: test/PRIVATE_KEY
+    RPC_URL: sepolia/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath)
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if vars[0].StoreKey != "FOO_custom" {
-		t.Fatalf("StoreKey = %q, want FOO_custom", vars[0].StoreKey)
+
+	expected := map[string]string{
+		"PRIVATE_KEY":   "prod/PRIVATE_KEY",
+		"RPC_URL":       "prod/RPC_URL",
+		"ETHERSCAN_API": "ETHERSCAN_API", // not in profile → identity
+	}
+	for _, v := range vars {
+		want := expected[v.EnvName]
+		if v.StoreKey != want {
+			t.Fatalf("StoreKey for %q = %q, want %q", v.EnvName, v.StoreKey, want)
+		}
+	}
+}
+
+func TestResolve_LocalProfileOverride(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+keys:
+  - PRIVATE_KEY
+profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY_team
+`)
+	localPath := writeFile(t, dir, ".secrets.local.yaml", `
+profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY_alice
+`)
+
+	vars, err := Resolve(manifestPath, localPath, "mainnet")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if vars[0].StoreKey != "prod/PRIVATE_KEY_alice" {
+		t.Fatalf("local profile should override committed: got %q", vars[0].StoreKey)
+	}
+}
+
+func TestResolve_ProfileFallbackToMappings(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+keys:
+  - PRIVATE_KEY
+  - ETHERSCAN_API
+mappings:
+  ETHERSCAN_API: ETHERSCAN_API_v2
+profiles:
+  mainnet:
+    PRIVATE_KEY: prod/PRIVATE_KEY
+`)
+
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "mainnet")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	expected := map[string]string{
+		"PRIVATE_KEY":   "prod/PRIVATE_KEY",   // from profile
+		"ETHERSCAN_API": "ETHERSCAN_API_v2",   // not in profile → falls back to mappings
+	}
+	for _, v := range vars {
+		want := expected[v.EnvName]
+		if v.StoreKey != want {
+			t.Fatalf("StoreKey for %q = %q, want %q", v.EnvName, v.StoreKey, want)
+		}
 	}
 }
 
@@ -327,7 +368,7 @@ keys:
   - BRAVO
 `)
 
-	vars, err := Resolve(manifestPath)
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -336,5 +377,62 @@ keys:
 		if v.EnvName != expected[i] {
 			t.Fatalf("vars[%d].EnvName = %q, want %q", i, v.EnvName, expected[i])
 		}
+	}
+}
+
+func TestResolve_UnknownProfile(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+keys:
+  - FOO
+`)
+
+	// Unknown profile → no profile matches → identity
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "nonexistent")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if vars[0].StoreKey != "FOO" {
+		t.Fatalf("unknown profile should fall through to identity: got %q", vars[0].StoreKey)
+	}
+}
+
+func TestResolve_DefaultProfileAutoApplied(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+keys:
+  - RPC_URL
+profiles:
+  default:
+    RPC_URL: prod/RPC_URL
+`)
+
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if vars[0].StoreKey != "prod/RPC_URL" {
+		t.Fatalf("default profile should be auto-applied: got %q", vars[0].StoreKey)
+	}
+}
+
+func TestResolve_DefaultProfileInLocalAutoApplied(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+keys:
+  - RPC_URL
+`)
+	writeFile(t, dir, ".secrets.local.yaml", `
+profiles:
+  default:
+    RPC_URL: local/RPC_URL
+`)
+
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if vars[0].StoreKey != "local/RPC_URL" {
+		t.Fatalf("default profile in local file should be auto-applied: got %q", vars[0].StoreKey)
 	}
 }
