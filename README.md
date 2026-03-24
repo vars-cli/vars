@@ -18,11 +18,11 @@ It is **local-first and offline friendly** — no server, no cloud dependency, n
 
 ```sh
 # macOS (Apple Silicon)
-curl -L https://github.com/brickpop/secrets/releases/latest/download/secrets_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/brickpop/secrets/releases/download/v0.1.0/secrets_0.1.0_darwin_arm64.tar.gz | tar xz
 sudo mv secrets /usr/local/bin/
 
 # Linux / WSL (amd64)
-curl -L https://github.com/brickpop/secrets/releases/latest/download/secrets_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/brickpop/secrets/releases/download/v0.1.0/secrets_0.1.0_linux_amd64.tar.gz | tar xz
 sudo mv secrets /usr/local/bin/
 ```
 
