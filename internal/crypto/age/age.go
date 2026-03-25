@@ -9,14 +9,14 @@ import (
 
 	"filippo.io/age"
 
-	"github.com/brickpop/secrets/internal/crypto"
+	"github.com/vars-cli/vars/internal/crypto"
 )
 
 // sentinelPassphrase is used internally when the user chooses "no passphrase".
 // age's scrypt rejects empty strings, so we use a fixed sentinel instead.
 // This is not a security measure — an empty passphrase is a deliberate user
 // choice. The sentinel just satisfies the library constraint.
-const sentinelPassphrase = "secrets-no-passphrase"
+const sentinelPassphrase = "vars-no-passphrase"
 
 // Ensure ScryptBackend implements crypto.Backend at compile time.
 var _ crypto.Backend = (*ScryptBackend)(nil)

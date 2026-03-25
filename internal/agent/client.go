@@ -16,7 +16,7 @@ import (
 func unixAddr(sockPath string) string { return "unix://" + sockPath }
 
 const (
-	dialTimeout          = 2 * time.Second
+	dialTimeout           = 2 * time.Second
 	ErrPassphraseRequired = "passphrase required"
 )
 
@@ -56,7 +56,7 @@ func Get(sockPath, key string) (string, error) {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	resp, err := NewSecretsClient(conn).Get(ctx, &GetRequest{Key: key})
+	resp, err := NewVarsClient(conn).Get(ctx, &GetRequest{Key: key})
 	if err != nil {
 		return "", statusMsg(err)
 	}
@@ -74,7 +74,7 @@ func List(sockPath string) ([]string, error) {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	resp, err := NewSecretsClient(conn).List(ctx, &ListRequest{})
+	resp, err := NewVarsClient(conn).List(ctx, &ListRequest{})
 	if err != nil {
 		return nil, statusMsg(err)
 	}
@@ -93,7 +93,7 @@ func Set(sockPath, key, value, passphrase string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewSecretsClient(conn).Set(ctx, &SetRequest{Key: key, Value: value, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Set(ctx, &SetRequest{Key: key, Value: value, Passphrase: passphrase})
 	return statusMsg(err)
 }
 
@@ -108,7 +108,7 @@ func Delete(sockPath, key, passphrase string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewSecretsClient(conn).Delete(ctx, &DeleteRequest{Key: key, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Delete(ctx, &DeleteRequest{Key: key, Passphrase: passphrase})
 	return statusMsg(err)
 }
 
@@ -124,7 +124,7 @@ func History(sockPath, key string) (keys, values []string, err error) {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	resp, rpcErr := NewSecretsClient(conn).History(ctx, &HistoryRequest{Key: key})
+	resp, rpcErr := NewVarsClient(conn).History(ctx, &HistoryRequest{Key: key})
 	if rpcErr != nil {
 		return nil, nil, statusMsg(rpcErr)
 	}
@@ -142,7 +142,7 @@ func Passwd(sockPath, oldPass, newPass string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewSecretsClient(conn).Passwd(ctx, &PasswdRequest{Passphrase: oldPass, NewPassphrase: newPass})
+	_, err = NewVarsClient(conn).Passwd(ctx, &PasswdRequest{Passphrase: oldPass, NewPassphrase: newPass})
 	return statusMsg(err)
 }
 
@@ -157,7 +157,7 @@ func Rename(sockPath, from, to, passphrase string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewSecretsClient(conn).Rename(ctx, &RenameRequest{From: from, To: to, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Rename(ctx, &RenameRequest{From: from, To: to, Passphrase: passphrase})
 	return statusMsg(err)
 }
 
@@ -173,7 +173,7 @@ func SetAgentTTL(sockPath string, seconds int64) error {
 	ctx, cancel := ctx2s()
 	defer cancel()
 
-	_, err = NewSecretsClient(conn).SetAgentTTL(ctx, &SetAgentTTLRequest{Seconds: seconds})
+	_, err = NewVarsClient(conn).SetAgentTTL(ctx, &SetAgentTTLRequest{Seconds: seconds})
 	return statusMsg(err)
 }
 

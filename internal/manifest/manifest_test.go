@@ -20,7 +20,7 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 func TestLoad_Valid(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
+	path := writeFile(t, dir, ".vars.yaml", `
 keys:
   - PRIVATE_KEY
   - RPC_URL
@@ -54,7 +54,7 @@ profiles:
 
 func TestLoad_KeysOnly(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
+	path := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
   - BAR
@@ -77,7 +77,7 @@ keys:
 
 func TestLoad_DuplicateKeys(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
+	path := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
   - BAR
@@ -103,7 +103,7 @@ keys:
 
 func TestLoad_EmptyKeys(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `keys: []`)
+	path := writeFile(t, dir, ".vars.yaml", `keys: []`)
 
 	m, err := Load(path)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestLoad_EmptyKeys(t *testing.T) {
 }
 
 func TestLoad_NotFound(t *testing.T) {
-	_, err := Load("/nonexistent/.secrets.yaml")
+	_, err := Load("/nonexistent/.vars.yaml")
 	if err == nil {
 		t.Fatal("Load nonexistent should fail")
 	}
@@ -126,7 +126,7 @@ func TestLoad_NotFound(t *testing.T) {
 
 func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `keys: [[[invalid`)
+	path := writeFile(t, dir, ".vars.yaml", `keys: [[[invalid`)
 
 	_, err := Load(path)
 	if err == nil {
@@ -136,7 +136,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 
 func TestLoad_UnknownFields(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.yaml", `
+	path := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
 unknown_field: something
@@ -156,7 +156,7 @@ another: 42
 
 func TestLoadLocal_Valid(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.local.yaml", `
+	path := writeFile(t, dir, ".vars.local.yaml", `
 mappings:
   PRIVATE_KEY: prod/PRIVATE_KEY_alice
 profiles:
@@ -177,7 +177,7 @@ profiles:
 }
 
 func TestLoadLocal_NotFound(t *testing.T) {
-	local, err := LoadLocal("/nonexistent/.secrets.local.yaml")
+	local, err := LoadLocal("/nonexistent/.vars.local.yaml")
 	if err != nil {
 		t.Fatalf("LoadLocal nonexistent should not error: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestLoadLocal_NotFound(t *testing.T) {
 
 func TestLoadLocal_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, ".secrets.local.yaml", `[[[invalid`)
+	path := writeFile(t, dir, ".vars.local.yaml", `[[[invalid`)
 
 	_, err := LoadLocal(path)
 	if err == nil {
@@ -200,13 +200,13 @@ func TestLoadLocal_InvalidYAML(t *testing.T) {
 
 func TestResolve_NoMappings(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
   - BAR
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -222,7 +222,7 @@ keys:
 
 func TestResolve_CommittedMappings(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
   - BAR
@@ -232,7 +232,7 @@ mappings:
   BAZ: BAZ_personal
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -251,13 +251,13 @@ mappings:
 
 func TestResolve_LocalMappingsOverride(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
 mappings:
   FOO: FOO_team
 `)
-	localPath := writeFile(t, dir, ".secrets.local.yaml", `
+	localPath := writeFile(t, dir, ".vars.local.yaml", `
 mappings:
   FOO: FOO_alice
 `)
@@ -273,7 +273,7 @@ mappings:
 
 func TestResolve_Profile(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - PRIVATE_KEY
   - RPC_URL
@@ -287,7 +287,7 @@ profiles:
     RPC_URL: sepolia/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "mainnet")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -307,14 +307,14 @@ profiles:
 
 func TestResolve_LocalProfileOverride(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - PRIVATE_KEY
 profiles:
   mainnet:
     PRIVATE_KEY: prod/PRIVATE_KEY_team
 `)
-	localPath := writeFile(t, dir, ".secrets.local.yaml", `
+	localPath := writeFile(t, dir, ".vars.local.yaml", `
 profiles:
   mainnet:
     PRIVATE_KEY: prod/PRIVATE_KEY_alice
@@ -331,7 +331,7 @@ profiles:
 
 func TestResolve_ProfileFallbackToMappings(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - PRIVATE_KEY
   - ETHERSCAN_API
@@ -342,7 +342,7 @@ profiles:
     PRIVATE_KEY: prod/PRIVATE_KEY
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "mainnet")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -361,14 +361,14 @@ profiles:
 
 func TestResolve_PreservesOrder(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - CHARLIE
   - ALPHA
   - BRAVO
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -382,13 +382,13 @@ keys:
 
 func TestResolve_UnknownProfile(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - FOO
 `)
 
 	// Unknown profile → no profile matches → identity
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "nonexistent")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "nonexistent")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -399,7 +399,7 @@ keys:
 
 func TestResolve_DefaultProfileAutoApplied(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - RPC_URL
 profiles:
@@ -407,7 +407,7 @@ profiles:
     RPC_URL: prod/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -418,17 +418,17 @@ profiles:
 
 func TestResolve_DefaultProfileInLocalAutoApplied(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := writeFile(t, dir, ".secrets.yaml", `
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
 keys:
   - RPC_URL
 `)
-	writeFile(t, dir, ".secrets.local.yaml", `
+	writeFile(t, dir, ".vars.local.yaml", `
 profiles:
   default:
     RPC_URL: local/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".secrets.local.yaml"), "")
+	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}

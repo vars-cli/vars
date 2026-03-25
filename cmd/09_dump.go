@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
-	"github.com/brickpop/secrets/internal/format"
+	"github.com/vars-cli/vars/internal/agent"
+	"github.com/vars-cli/vars/internal/format"
 )
 
 var dumpFormat string
@@ -19,7 +19,7 @@ func init() {
 
 var dumpCmd = &cobra.Command{
 	Use:   "dump",
-	Short: "Dump all secrets from the store",
+	Short: "Dump all variables from the store",
 	Long: `Print all key/value pairs from the store. No manifest involved.
 Intended for debugging and migration only.`,
 	Args: cobra.NoArgs,
@@ -29,7 +29,7 @@ Intended for debugging and migration only.`,
 			return UserError(err.Error())
 		}
 
-		fmt.Fprintln(os.Stderr, "Warning: dumping all secrets from store.")
+		fmt.Fprintln(os.Stderr, "Warning: dumping all variables from the store.")
 
 		if err := ensureAgent(); err != nil {
 			return err

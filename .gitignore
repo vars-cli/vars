@@ -1,13 +1,13 @@
 # Binary
-secrets
-!secrets/
+vars
+!vars/
 
 # Build
 dist/
 
 # Environment files
 *.env
-.secrets.local.yaml
+.vars.local.yaml
 
 # OS
 .DS_Store

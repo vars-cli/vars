@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/brickpop/secrets/internal/agent"
-	"github.com/brickpop/secrets/internal/envfile"
+	"github.com/vars-cli/vars/internal/agent"
+	"github.com/vars-cli/vars/internal/envfile"
 )
 
 var (
@@ -29,7 +29,7 @@ var importCmd = &cobra.Command{
 	Long: `Import key-value pairs from a .env file into the store.
 
 Without a scope, keys are imported into the default scope.
-With a scope, keys are prefixed: secrets import prod .env → prod/KEY.`,
+With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if importOverwrite && importSkip {

@@ -5,9 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/brickpop/secrets/internal/agent"
-	"github.com/brickpop/secrets/internal/prompt"
-	"github.com/brickpop/secrets/internal/store"
+	"github.com/vars-cli/vars/internal/agent"
+	agebackend "github.com/vars-cli/vars/internal/crypto/age"
+	"github.com/vars-cli/vars/internal/prompt"
+	"github.com/vars-cli/vars/internal/store"
 )
 
 const defaultAgentTTL int64 = 8 * 60 * 60 // 8 hours in seconds
@@ -64,7 +65,7 @@ func createStore() (string, error) {
 	fmt.Fprintf(os.Stderr, "Your environment variables will be kept in an encrypted file at:\n")
 	fmt.Fprintf(os.Stderr, "  %s\n\n", store.FilePath())
 	fmt.Fprintf(os.Stderr, "A passphrase adds an extra layer of protection (optional).\n")
-	fmt.Fprintf(os.Stderr, "You can add or change it at any time with `secrets passwd`.\n\n")
+	fmt.Fprintf(os.Stderr, "You can add or change it at any time with `vars passwd`.\n\n")
 
 	passphrase, err := stdinPrompter().PassphraseConfirm(
 		"Passphrase (leave empty for none): ",
@@ -84,17 +85,17 @@ func createStore() (string, error) {
 
 // agentSocketPath returns the agent socket path.
 func agentSocketPath() string {
-	if sock := os.Getenv("SECRETS_AGENT_SOCK"); sock != "" {
+	if sock := os.Getenv("VARS_AGENT_SOCK"); sock != "" {
 		return sock
 	}
 	return store.Dir() + "/agent.sock"
 }
 
-// printManifestHint prints a hint if .secrets.yaml exists in cwd
+// printManifestHint prints a hint if .vars.yaml exists in cwd
 // and the key is not listed in it. Strips scope prefix before checking
 // so that "prod/RPC_URL" correctly matches "- RPC_URL" in the manifest.
 func printManifestHint(key string) {
-	data, err := os.ReadFile(".secrets.yaml")
+	data, err := os.ReadFile(".vars.yaml")
 	if err != nil {
 		return
 	}
@@ -103,7 +104,7 @@ func printManifestHint(key string) {
 		bareKey = key[i+1:]
 	}
 	if !containsKey(string(data), bareKey) {
-		fmt.Fprintf(os.Stderr, "Hint: %q is not listed in .secrets.yaml. Consider adding it.\n", key)
+		fmt.Fprintf(os.Stderr, "Hint: %q is not listed in .vars.yaml. Consider adding it.\n", key)
 	}
 }
 

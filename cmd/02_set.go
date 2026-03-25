@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/brickpop/secrets/internal/agent"
+	"github.com/vars-cli/vars/internal/agent"
 )
 
 var (

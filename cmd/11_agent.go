@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
-	agebackend "github.com/brickpop/secrets/internal/crypto/age"
-	"github.com/brickpop/secrets/internal/store"
+	"github.com/vars-cli/vars/internal/agent"
+	agebackend "github.com/vars-cli/vars/internal/crypto/age"
+	"github.com/vars-cli/vars/internal/store"
 )
 
 // daemonPayload is the JSON structure written to the temp file for the daemon.
@@ -57,7 +57,7 @@ to set an explicit TTL, or to update the TTL of a running agent.`,
 		}
 
 		// Internal daemon mode (re-exec'd child)
-		if os.Getenv("_SECRETS_AGENT_DAEMON") == "1" {
+		if os.Getenv("_VARS_AGENT_DAEMON") == "1" {
 			return runDaemon(sockPath)
 		}
 
@@ -96,7 +96,7 @@ var agentStopCmd = &cobra.Command{
 }
 
 // startAgent decrypts the store, spawns the daemon, and waits for the socket.
-// Returns the socket path. Used by both `secrets agent` and ensureAgent().
+// Returns the socket path. Used by both `vars agent` and ensureAgent().
 func startAgent(ttl int64) (string, error) {
 	if !store.Exists() {
 		passphrase, err := createStore()
@@ -163,7 +163,7 @@ func launchDaemon(data map[string]string, passphrase string, ttl int64) (string,
 	}
 
 	// Write payload to temp file
-	tmpFile, err := os.CreateTemp("", ".secrets-agent-*")
+	tmpFile, err := os.CreateTemp("", ".vars-agent-*")
 	if err != nil {
 		return "", InternalError("creating temp file for daemon")
 	}
@@ -187,8 +187,8 @@ func launchDaemon(data map[string]string, passphrase string, ttl int64) (string,
 
 	daemonCmd := exec.Command(self, "agent", "--ttl", ttlStr)
 	daemonCmd.Env = append(os.Environ(),
-		"_SECRETS_AGENT_DAEMON=1",
-		"_SECRETS_AGENT_DATA="+tmpFile.Name(),
+		"_VARS_AGENT_DAEMON=1",
+		"_VARS_AGENT_DATA="+tmpFile.Name(),
 	)
 	daemonCmd.Stdout = nil
 	daemonCmd.Stderr = nil
@@ -212,7 +212,7 @@ func launchDaemon(data map[string]string, passphrase string, ttl int64) (string,
 
 // runDaemon is called by the re-exec'd child process.
 func runDaemon(sockPath string) error {
-	dataFile := os.Getenv("_SECRETS_AGENT_DATA")
+	dataFile := os.Getenv("_VARS_AGENT_DATA")
 	if dataFile == "" {
 		return InternalError("daemon: missing data file")
 	}

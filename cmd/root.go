@@ -1,4 +1,4 @@
-// Package cmd implements the CLI commands for secrets.
+// Package cmd implements the CLI commands for vars.
 package cmd
 
 import (
@@ -16,11 +16,11 @@ func init() {
 var Version = "dev"
 
 var rootCmd = &cobra.Command{
-	Use:   "secrets",
-	Short: "A central vault for environment variable secrets",
-	Long: `secrets is a single encrypted store for environment variable secrets,
+	Use:   "vars",
+	Short: "A central vault for environment variables",
+	Long: `vars is a single encrypted store for environment variables,
 shared across multiple projects. It replaces scattered .env files with
-a single age-encrypted store and per-project manifests.`,
+a single age-encrypted store.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -28,7 +28,7 @@ a single age-encrypted store and per-project manifests.`,
 // Execute runs the root command. Called from main.
 func Execute() {
 	rootCmd.Version = Version
-	rootCmd.SetVersionTemplate("secrets {{.Version}}\n")
+	rootCmd.SetVersionTemplate("vars {{.Version}}\n")
 	if err := rootCmd.Execute(); err != nil {
 		// Determine exit code: ExitError for user errors (1), default 2
 		if exitErr, ok := err.(*ExitError); ok {

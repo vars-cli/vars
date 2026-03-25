@@ -15,13 +15,13 @@ import (
 var binary string
 
 func TestMain(m *testing.M) {
-	tmp, err := os.MkdirTemp("", "secrets-integration-*")
+	tmp, err := os.MkdirTemp("", "vars-integration-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "creating temp dir: %v\n", err)
 		os.Exit(1)
 	}
 
-	binary = filepath.Join(tmp, "secrets")
+	binary = filepath.Join(tmp, "vars")
 	out, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "building binary: %v\n%s\n", err, out)
@@ -49,7 +49,7 @@ func newRunner(t *testing.T) *runner {
 		storeDir: storeDir,
 		workDir:  workDir,
 		env: []string{
-			"SECRETS_STORE_DIR=" + storeDir,
+			"VARS_STORE_DIR=" + storeDir,
 			"HOME=" + t.TempDir(),
 			"PATH=" + os.Getenv("PATH"),
 		},
@@ -80,7 +80,7 @@ func (r *runner) mustRun(args ...string) string {
 	r.t.Helper()
 	stdout, stderr, err := r.run(args...)
 	if err != nil {
-		r.t.Fatalf("secrets %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
+		r.t.Fatalf("vars %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
 	}
 	return stdout
 }
@@ -89,7 +89,7 @@ func (r *runner) mustRunWithStderr(args ...string) (string, string) {
 	r.t.Helper()
 	stdout, stderr, err := r.run(args...)
 	if err != nil {
-		r.t.Fatalf("secrets %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
+		r.t.Fatalf("vars %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
 	}
 	return stdout, stderr
 }
@@ -98,7 +98,7 @@ func (r *runner) mustFail(args ...string) (string, string) {
 	r.t.Helper()
 	stdout, stderr, err := r.run(args...)
 	if err == nil {
-		r.t.Fatalf("secrets %s should have failed\nstdout: %s\nstderr: %s", strings.Join(args, " "), stdout, stderr)
+		r.t.Fatalf("vars %s should have failed\nstdout: %s\nstderr: %s", strings.Join(args, " "), stdout, stderr)
 	}
 	return stdout, stderr
 }
@@ -120,14 +120,15 @@ func (r *runner) mustRunWithStdin(stdin string, args ...string) string {
 	r.t.Helper()
 	stdout, stderr, err := r.runWithStdin(stdin, args...)
 	if err != nil {
-		r.t.Fatalf("secrets %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
+		r.t.Fatalf("vars %s failed: %v\nstdout: %s\nstderr: %s", strings.Join(args, " "), err, stdout, stderr)
 	}
 	return stdout
 }
 
 func (r *runner) initNoPassphrase() {
 	r.t.Helper()
-	r.mustRunWithStdin("\n\n", "init")
+	// Any command triggers auto-init on first run; ls is the simplest (no side effects).
+	r.mustRunWithStdin("\n\n", "ls")
 }
 
 func (r *runner) writeFile(name, content string) {
@@ -264,12 +265,12 @@ func TestIntegration_ResolvePosix(t *testing.T) {
 	r.mustRun("set", "RPC_URL", "https://rpc.example.com")
 	r.mustRun("set", "PRIVATE_KEY", "0xTESTKEY")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - RPC_URL
   - PRIVATE_KEY
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 	if !strings.Contains(out, "export RPC_URL=") {
 		t.Fatalf("posix export missing RPC_URL: %s", out)
 	}
@@ -284,11 +285,11 @@ func TestIntegration_ResolveFish(t *testing.T) {
 
 	r.mustRun("set", "MY_VAR", "hello world")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - MY_VAR
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--format", "fish")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--format", "fish")
 	if !strings.Contains(out, "set -x MY_VAR") {
 		t.Fatalf("fish export missing set -x: %s", out)
 	}
@@ -300,11 +301,11 @@ func TestIntegration_ResolveDotenv(t *testing.T) {
 
 	r.mustRun("set", "MY_VAR", "hello world")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - MY_VAR
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--format", "dotenv")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--format", "dotenv")
 	if !strings.Contains(out, "MY_VAR=") {
 		t.Fatalf("dotenv export missing MY_VAR: %s", out)
 	}
@@ -316,14 +317,14 @@ func TestIntegration_ResolveLocalMappings(t *testing.T) {
 
 	r.mustRun("set", "PRIVATE_KEY", "0xGLOBALKEY")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - PROJECT_PK
 `)
-	r.writeFile(".secrets.local.yaml", `mappings:
+	r.writeFile(".vars.local.yaml", `mappings:
   PROJECT_PK: PRIVATE_KEY
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 	if !strings.Contains(out, "export PROJECT_PK=") {
 		t.Fatalf("mapped export missing PROJECT_PK: %s", out)
 	}
@@ -338,14 +339,14 @@ func TestIntegration_ResolvePartial(t *testing.T) {
 
 	r.mustRun("set", "EXISTS", "value")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - EXISTS
   - MISSING
 `)
 
-	r.mustFail("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	r.mustFail("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--partial")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--partial")
 	if !strings.Contains(out, "EXISTS") {
 		t.Fatalf("partial export missing EXISTS: %s", out)
 	}
@@ -444,8 +445,8 @@ func TestIntegration_Passwd_EmptyToSet(t *testing.T) {
 func TestIntegration_Passwd_SetToEmpty(t *testing.T) {
 	r := newRunner(t)
 
-	// Init with passphrase
-	r.mustRunWithStdin("mypass\nmypass\n", "init")
+	// Init with passphrase via auto-init triggered by first command
+	r.mustRunWithStdin("mypass\nmypass\n", "ls")
 
 	// Auto-start agent (needs passphrase) and set a value
 	r.mustRunWithStdin("mypass\n", "set", "KEY", "value")
@@ -470,44 +471,13 @@ func TestIntegration_Passwd_SetToEmpty(t *testing.T) {
 	}
 }
 
-func TestIntegration_InitAlreadyExists(t *testing.T) {
-	r := newRunner(t)
-	r.initNoPassphrase()
-
-	_, stderr, err := r.runWithStdin("\n\n", "init")
-	if err != nil {
-		t.Fatalf("second init should not error: %v", err)
-	}
-	if !strings.Contains(stderr, "already exists") {
-		t.Fatalf("second init should mention already exists: %s", stderr)
-	}
-}
-
-func TestIntegration_NoStore(t *testing.T) {
-	r := newRunner(t)
-
-	_, stderr := r.mustFail("get", "KEY")
-	if !strings.Contains(stderr, "No store found") {
-		t.Fatalf("expected 'No store found' error, got: %s", stderr)
-	}
-
-	_, stderr = r.mustFail("set", "KEY", "value")
-	if !strings.Contains(stderr, "No store found") {
-		t.Fatalf("expected 'No store found' error, got: %s", stderr)
-	}
-
-	_, stderr = r.mustFail("ls")
-	if !strings.Contains(stderr, "No store found") {
-		t.Fatalf("expected 'No store found' error, got: %s", stderr)
-	}
-}
 
 func TestIntegration_WrongPassphrase(t *testing.T) {
 	r := newRunner(t)
 
-	r.mustRunWithStdin("correctpass\ncorrectpass\n", "init")
+	r.mustRunWithStdin("correctpass\ncorrectpass\n", "ls")
 
-	// init auto-starts the agent; stop it to simulate a fresh session
+	// auto-init starts the agent; stop it to simulate a fresh session
 	r.mustRun("agent", "stop")
 	time.Sleep(100 * time.Millisecond)
 
@@ -535,11 +505,11 @@ func TestIntegration_ResolveInvalidFormat(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - KEY
 `)
 
-	_, stderr := r.mustFail("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--format", "invalid")
+	_, stderr := r.mustFail("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--format", "invalid")
 	if !strings.Contains(stderr, "invalid") || !strings.Contains(strings.ToLower(stderr), "format") {
 		t.Fatalf("expected format error, got: %s", stderr)
 	}
@@ -548,8 +518,8 @@ func TestIntegration_ResolveInvalidFormat(t *testing.T) {
 func TestIntegration_Version(t *testing.T) {
 	r := newRunner(t)
 	out := r.mustRun("--version")
-	if !strings.HasPrefix(out, "secrets ") {
-		t.Fatalf("version output should start with 'secrets ', got: %q", out)
+	if !strings.HasPrefix(out, "vars ") {
+		t.Fatalf("version output should start with 'vars ', got: %q", out)
 	}
 }
 
@@ -559,13 +529,13 @@ func TestIntegration_ResolveCommittedMappings(t *testing.T) {
 
 	r.mustRun("set", "GLOBAL_TOKEN", "tok123")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - LOCAL_TOKEN
 mappings:
   LOCAL_TOKEN: GLOBAL_TOKEN
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 	if !strings.Contains(out, "LOCAL_TOKEN") {
 		t.Fatalf("committed mappings missing LOCAL_TOKEN: %s", out)
 	}
@@ -725,7 +695,7 @@ func TestIntegration_Resolve_Profile(t *testing.T) {
 	r.mustRun("set", "prod/RPC_URL", "https://prod.rpc")
 	r.mustRun("set", "ETHERSCAN_API", "shared-key")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - RPC_URL
   - ETHERSCAN_API
 profiles:
@@ -733,7 +703,7 @@ profiles:
     RPC_URL: prod/RPC_URL
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--profile", "mainnet")
 	if !strings.Contains(out, "https://prod.rpc") {
 		t.Fatalf("expected profile RPC_URL, got: %s", out)
 	}
@@ -748,18 +718,18 @@ func TestIntegration_Resolve_LocalProfileOverride(t *testing.T) {
 
 	r.mustRun("set", "prod/PRIVATE_KEY_alice", "0xALICE")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - PRIVATE_KEY
 profiles:
   mainnet:
     PRIVATE_KEY: prod/PRIVATE_KEY_team
 `)
-	r.writeFile(".secrets.local.yaml", `profiles:
+	r.writeFile(".vars.local.yaml", `profiles:
   mainnet:
     PRIVATE_KEY: prod/PRIVATE_KEY_alice
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--profile", "mainnet")
 	if !strings.Contains(out, "0xALICE") {
 		t.Fatalf("local profile should override committed: got %s", out)
 	}
@@ -895,13 +865,13 @@ func TestIntegration_ResolveOrderPreserved(t *testing.T) {
 	r.mustRun("set", "ALPHA", "a")
 	r.mustRun("set", "MIKE", "m")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - MIKE
   - ZEBRA
   - ALPHA
 `)
 
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	if len(lines) != 3 {
 		t.Fatalf("export returned %d lines, want 3", len(lines))
@@ -924,7 +894,7 @@ func TestIntegration_Resolve_DefaultProfile(t *testing.T) {
 	r.mustRun("set", "prod/RPC_URL", "https://prod.rpc")
 	r.mustRun("set", "ETHERSCAN_API", "shared-key")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - RPC_URL
   - ETHERSCAN_API
 profiles:
@@ -933,7 +903,7 @@ profiles:
 `)
 
 	// No --profile flag: "default" profile is auto-applied
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"))
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
 	if !strings.Contains(out, "https://prod.rpc") {
 		t.Fatalf("default profile should be auto-applied: got %s", out)
 	}
@@ -949,7 +919,7 @@ func TestIntegration_Resolve_HierarchicalFallback(t *testing.T) {
 	// Only the base key exists; manifest maps to a more-specific key
 	r.mustRun("set", "RPC_URL", "https://base.rpc")
 
-	r.writeFile(".secrets.yaml", `keys:
+	r.writeFile(".vars.yaml", `keys:
   - RPC_URL
 profiles:
   mainnet:
@@ -957,7 +927,7 @@ profiles:
 `)
 
 	// main/dev/RPC_URL not in store → main/RPC_URL not in store → RPC_URL found
-	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".secrets.yaml"), "--profile", "mainnet")
+	out := r.mustRun("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--profile", "mainnet")
 	if !strings.Contains(out, "https://base.rpc") {
 		t.Fatalf("hierarchical fallback should resolve to base key: got %s", out)
 	}

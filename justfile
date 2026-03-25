@@ -1,4 +1,4 @@
-# secrets — development workflow
+# vars — development workflow
 
 # Default recipe: show help
 help:
@@ -28,10 +28,13 @@ setup:
 # Regenerate protobuf Go code from agent.proto (commit the result)
 [group('dev')]
 proto:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v protoc-gen-go &>/dev/null || export PATH="$PATH:$HOME/go/bin"
     protoc --go_out=. --go_opt=paths=source_relative \
            --go-grpc_out=. --go-grpc_opt=paths=source_relative \
            internal/agent/agent.proto
-    @echo "Generated agent.pb.go and agent_grpc.pb.go — review and commit."
+    echo "Generated agent.pb.go and agent_grpc.pb.go — review and commit."
 
 # Format Go source code
 [group('dev')]
@@ -85,12 +88,12 @@ coverage:
 
 # Version from git tag, or "dev"
 version := `git describe --tags --always --dirty 2>/dev/null || echo dev`
-ldflags := "-s -w -X github.com/brickpop/secrets/cmd.Version=" + version
+ldflags := "-s -w -X github.com/vars-cli/vars/cmd.Version=" + version
 
 # Build the binary
 [group('build')]
 build:
-    go build -ldflags '{{ldflags}}' -o secrets .
+    go build -ldflags '{{ldflags}}' -o vars .
 
 # Install to GOPATH/bin
 [group('build')]
@@ -100,28 +103,26 @@ install:
 # Cross-compile for all supported platforms
 [group('build')]
 cross-compile:
-    GOOS=darwin GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-arm64 .
-    GOOS=darwin GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-darwin-amd64 .
-    GOOS=linux  GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-amd64  .
-    GOOS=linux  GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/secrets-linux-arm64  .
+    GOOS=darwin GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/vars-darwin-arm64 .
+    GOOS=darwin GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/vars-darwin-amd64 .
+    GOOS=linux  GOARCH=amd64 go build -ldflags '{{ldflags}}' -o dist/vars-linux-amd64  .
+    GOOS=linux  GOARCH=arm64 go build -ldflags '{{ldflags}}' -o dist/vars-linux-arm64  .
 
 # Quick end-to-end smoke test against a temp store
 [group('test')]
 smoke: build
     #!/usr/bin/env bash
     set -euo pipefail
-    export SECRETS_STORE_DIR=$(mktemp -d)
-    trap "rm -rf $SECRETS_STORE_DIR" EXIT
-    BIN="./secrets"
+    export VARS_STORE_DIR=$(mktemp -d)
+    trap "rm -rf $VARS_STORE_DIR" EXIT
+    BIN="./vars"
 
     # Cleanup: stop agent on exit
-    trap "$BIN agent stop 2>/dev/null; rm -rf $SECRETS_STORE_DIR" EXIT
+    trap "$BIN agent stop 2>/dev/null; rm -rf $VARS_STORE_DIR" EXIT
 
-    echo "--- init (no passphrase) ---"
-    echo -e "\n\n" | $BIN init
-
-    echo "--- set keys (agent auto-starts) ---"
-    $BIN set RPC_URL https://rpc.example.com
+    echo "--- set keys (first run auto-creates store) ---"
+    echo -e "\n\n" | $BIN set RPC_URL https://rpc.example.com
+    echo "--- set more keys ---"
     $BIN set PRIVATE_KEY 0xTESTKEY
     $BIN set ETHERSCAN_API abc123
 
@@ -134,31 +135,31 @@ smoke: build
 
     echo "--- export (posix) ---"
     WORKDIR=$(mktemp -d)
-    trap "$BIN agent stop 2>/dev/null; rm -rf $SECRETS_STORE_DIR $WORKDIR" EXIT
-    cat > "$WORKDIR/.secrets.yaml" <<'YAML'
+    trap "$BIN agent stop 2>/dev/null; rm -rf $VARS_STORE_DIR $WORKDIR" EXIT
+    cat > "$WORKDIR/.vars.yaml" <<'YAML'
     project: smoke-test
     keys:
       - RPC_URL
       - PRIVATE_KEY
     YAML
-    eval "$($BIN resolve -f "$WORKDIR/.secrets.yaml")"
+    eval "$($BIN resolve -f "$WORKDIR/.vars.yaml")"
     test "$RPC_URL" = "https://rpc.example.com"
     test "$PRIVATE_KEY" = "0xTESTKEY"
 
     echo "--- export (fish) ---"
-    $BIN resolve -f "$WORKDIR/.secrets.yaml" --format fish | grep -q "set -x"
+    $BIN resolve -f "$WORKDIR/.vars.yaml" --format fish | grep -q "set -x"
 
     echo "--- export (dotenv) ---"
-    $BIN resolve -f "$WORKDIR/.secrets.yaml" --format dotenv | grep -q 'RPC_URL='
+    $BIN resolve -f "$WORKDIR/.vars.yaml" --format dotenv | grep -q 'RPC_URL='
 
     echo "--- export --partial ---"
-    cat > "$WORKDIR/.secrets.yaml" <<'YAML'
+    cat > "$WORKDIR/.vars.yaml" <<'YAML'
     project: smoke-test
     keys:
       - RPC_URL
       - MISSING_KEY
     YAML
-    $BIN resolve -f "$WORKDIR/.secrets.yaml" --partial 2>/dev/null | grep -q "MISSING_KEY"
+    $BIN resolve -f "$WORKDIR/.vars.yaml" --partial 2>/dev/null | grep -q "MISSING_KEY"
 
     echo "--- dump ---"
     DUMP_OUT=$($BIN dump --format dotenv 2>/dev/null)
@@ -185,7 +186,7 @@ smoke: build
     test "$($BIN get RPC_URL)" = "https://rpc.example.com"
 
     echo "--- version ---"
-    $BIN --version | grep -q "secrets"
+    $BIN --version | grep -q "vars"
 
     echo ""
     echo "All smoke tests passed!"

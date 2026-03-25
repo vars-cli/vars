@@ -1,4 +1,4 @@
-module github.com/brickpop/secrets
+module github.com/vars-cli/vars
 
 go 1.25.0
 

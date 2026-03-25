@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/brickpop/secrets/internal/crypto"
+	"github.com/vars-cli/vars/internal/crypto"
 )
 
 const metaFileName = "meta.json"
@@ -24,7 +24,7 @@ type Meta struct {
 }
 
 const (
-	appDirName    = "secrets"
+	appDirName    = "vars"
 	storeFileName = "store.age"
 
 	dirPerm  = 0700
@@ -40,9 +40,9 @@ type Store struct {
 }
 
 // Dir returns the store directory path.
-// Priority: SECRETS_STORE_DIR > XDG_DATA_HOME/secrets > ~/.local/share/secrets
+// Priority: VARS_STORE_DIR > XDG_DATA_HOME/vars > ~/.local/share/vars
 func Dir() string {
-	if d := os.Getenv("SECRETS_STORE_DIR"); d != "" {
+	if d := os.Getenv("VARS_STORE_DIR"); d != "" {
 		return d
 	}
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
@@ -117,7 +117,7 @@ func Open(backend crypto.Backend) (*Store, error) {
 	ciphertext, err := os.ReadFile(storePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no store found. Run 'secrets init' to create one")
+			return nil, fmt.Errorf("no store found. Store not found — run 'vars' to get started")
 		}
 		return nil, fmt.Errorf("reading store: %w", err)
 	}

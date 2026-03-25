@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
+	"github.com/vars-cli/vars/internal/agent"
 )
 
 var lsAll bool
@@ -59,4 +59,3 @@ With --all, lists every key with its full name.`,
 		return nil
 	},
 }
-

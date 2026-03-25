@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/brickpop/secrets/internal/crypto/age"
+	"github.com/vars-cli/vars/internal/crypto/age"
 )
 
-// helper: create a temp dir and set SECRETS_STORE_DIR
+// helper: create a temp dir and set VARS_STORE_DIR
 func setupTestDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("SECRETS_STORE_DIR", dir)
+	t.Setenv("VARS_STORE_DIR", dir)
 	return dir
 }
 
@@ -28,29 +28,29 @@ func initTestStore(t *testing.T, passphrase string) *age.ScryptBackend {
 }
 
 func TestDir_Default(t *testing.T) {
-	t.Setenv("SECRETS_STORE_DIR", "")
+	t.Setenv("VARS_STORE_DIR", "")
 	t.Setenv("XDG_DATA_HOME", "")
 	d := Dir()
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".local", "share", "secrets")
+	expected := filepath.Join(home, ".local", "share", "vars")
 	if d != expected {
 		t.Fatalf("Dir() = %q, want %q", d, expected)
 	}
 }
 
 func TestDir_XDG(t *testing.T) {
-	t.Setenv("SECRETS_STORE_DIR", "")
+	t.Setenv("VARS_STORE_DIR", "")
 	t.Setenv("XDG_DATA_HOME", "/tmp/xdg-data")
-	expected := filepath.Join("/tmp/xdg-data", "secrets")
+	expected := filepath.Join("/tmp/xdg-data", "vars")
 	if d := Dir(); d != expected {
 		t.Fatalf("Dir() = %q, want %q", d, expected)
 	}
 }
 
 func TestDir_Override(t *testing.T) {
-	t.Setenv("SECRETS_STORE_DIR", "/tmp/custom-secrets")
-	if d := Dir(); d != "/tmp/custom-secrets" {
-		t.Fatalf("Dir() = %q, want /tmp/custom-secrets", d)
+	t.Setenv("VARS_STORE_DIR", "/tmp/custom-vars")
+	if d := Dir(); d != "/tmp/custom-vars" {
+		t.Fatalf("Dir() = %q, want /tmp/custom-vars", d)
 	}
 }
 
@@ -503,10 +503,10 @@ func TestMultipleKeys(t *testing.T) {
 	keys := map[string]string{
 		"PRIVATE_KEY_myproject":    "0xTESTKEY1",
 		"PRIVATE_KEY_otherproject": "0xTESTKEY2",
-		"RPC_URL_MAINNET":         "https://rpc.example.com",
-		"RPC_URL_GOERLI":          "https://goerli.example.com",
-		"ETHERSCAN_API":           "abc123def456",
-		"FOUNDRY_PROFILE":         "default",
+		"RPC_URL_MAINNET":          "https://rpc.example.com",
+		"RPC_URL_GOERLI":           "https://goerli.example.com",
+		"ETHERSCAN_API":            "abc123def456",
+		"FOUNDRY_PROFILE":          "default",
 	}
 
 	for k, v := range keys {
@@ -551,18 +551,18 @@ func TestSpecialValueCharacters(t *testing.T) {
 	}
 
 	testCases := map[string]string{
-		"SPACES":     "value with spaces",
-		"QUOTES":     `value with "double" and 'single' quotes`,
-		"NEWLINES":   "line1\nline2\nline3",
-		"TABS":       "col1\tcol2\tcol3",
-		"BACKSLASH":  `path\to\something`,
-		"DOLLAR":     "$HOME/bin",
-		"BACKTICK":   "`command`",
-		"UNICODE":    "\u00e9\u00e8\u00ea\u00eb \u00fc\u00f6\u00e4",
-		"SPECIAL":    "!@#$%^&*(){}[]|;:<>,?/~",
-		"EMPTY":      "",
-		"EQUALS":     "key=value=extra",
-		"URL":        "https://user:pass@host:8080/path?q=1&r=2#frag",
+		"SPACES":      "value with spaces",
+		"QUOTES":      `value with "double" and 'single' quotes`,
+		"NEWLINES":    "line1\nline2\nline3",
+		"TABS":        "col1\tcol2\tcol3",
+		"BACKSLASH":   `path\to\something`,
+		"DOLLAR":      "$HOME/bin",
+		"BACKTICK":    "`command`",
+		"UNICODE":     "\u00e9\u00e8\u00ea\u00eb \u00fc\u00f6\u00e4",
+		"SPECIAL":     "!@#$%^&*(){}[]|;:<>,?/~",
+		"EMPTY":       "",
+		"EQUALS":      "key=value=extra",
+		"URL":         "https://user:pass@host:8080/path?q=1&r=2#frag",
 		"PRIVATE_HEX": "0xdeadbeef0123456789abcdef",
 	}
 
@@ -619,8 +619,8 @@ func TestNoTempFilesLeftBehind(t *testing.T) {
 }
 
 func TestFilePath(t *testing.T) {
-	t.Setenv("SECRETS_STORE_DIR", "/tmp/test-secrets")
-	if fp := FilePath(); fp != "/tmp/test-secrets/store.age" {
-		t.Fatalf("FilePath() = %q, want /tmp/test-secrets/store.age", fp)
+	t.Setenv("VARS_STORE_DIR", "/tmp/test-vars")
+	if fp := FilePath(); fp != "/tmp/test-vars/store.age" {
+		t.Fatalf("FilePath() = %q, want /tmp/test-vars/store.age", fp)
 	}
 }

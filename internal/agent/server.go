@@ -19,13 +19,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/brickpop/secrets/internal/crypto"
-	"github.com/brickpop/secrets/internal/store"
+	"github.com/vars-cli/vars/internal/crypto"
+	"github.com/vars-cli/vars/internal/store"
 )
 
 // Server holds decrypted store data in memory and serves it over a Unix socket via gRPC.
 type Server struct {
-	UnimplementedSecretsServer
+	UnimplementedVarsServer
 
 	data       map[string]string
 	dataMu     sync.RWMutex
@@ -71,7 +71,7 @@ func (s *Server) Start(ttl time.Duration) error {
 
 	// Hook the server to the GRPC request handlers
 	s.grpcSrv = grpc.NewServer()
-	RegisterSecretsServer(s.grpcSrv, s)
+	RegisterVarsServer(s.grpcSrv, s)
 
 	close(s.ready)
 
@@ -361,4 +361,3 @@ func nextHistorySuffix(data map[string]string, base string) int {
 	}
 	return parseHistorySuffix(keys[len(keys)-1]) + 1
 }
-

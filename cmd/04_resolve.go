@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
-	"github.com/brickpop/secrets/internal/format"
-	"github.com/brickpop/secrets/internal/manifest"
+	"github.com/vars-cli/vars/internal/agent"
+	"github.com/vars-cli/vars/internal/format"
+	"github.com/vars-cli/vars/internal/manifest"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 
 func init() {
 	resolveCmd.Flags().StringVar(&resolveFormat, "format", "posix", "Output format: posix, fish, dotenv")
-	resolveCmd.Flags().StringVarP(&resolveFile, "file", "f", ".secrets.yaml", "Path to manifest file")
+	resolveCmd.Flags().StringVarP(&resolveFile, "file", "f", ".vars.yaml", "Path to manifest file")
 	resolveCmd.Flags().BoolVar(&resolvePartial, "partial", false, "Export empty values for missing keys instead of erroring")
 	resolveCmd.Flags().StringVarP(&resolveProfile, "profile", "p", "", "Active profile name")
 	rootCmd.AddCommand(resolveCmd)
@@ -31,18 +31,18 @@ func init() {
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
 	Short: "Resolve manifest keys and print as shell variables",
-	Long: `Read .secrets.yaml, resolve all variables against the store, and print
+	Long: `Read .vars.yaml, resolve all variables against the store, and print as
 shell-source-able lines to stdout.
 
-  eval "$(secrets resolve)"
-  secrets resolve --format fish | source
-  secrets resolve --profile mainnet
+  eval "$(vars resolve)"
+  vars resolve --format fish | source
+  vars resolve --profile mainnet
 
 Resolution priority (per key):
-  1. Active profile from .secrets.local.yaml (personal override)
-  2. Active profile from .secrets.yaml
-  3. mappings: from .secrets.local.yaml
-  4. mappings: from .secrets.yaml
+  1. Active profile from .vars.local.yaml (personal override)
+  2. Active profile from .vars.yaml
+  3. mappings: from .vars.local.yaml
+  4. mappings: from .vars.yaml
   5. Bare key (identity)`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +51,7 @@ Resolution priority (per key):
 			return UserError(err.Error())
 		}
 
-		localPath := filepath.Join(filepath.Dir(resolveFile), ".secrets.local.yaml")
+		localPath := filepath.Join(filepath.Dir(resolveFile), ".vars.local.yaml")
 		vars, err := manifest.Resolve(resolveFile, localPath, resolveProfile)
 		if err != nil {
 			return UserError(err.Error())
@@ -78,7 +78,7 @@ Resolution priority (per key):
 					continue
 				}
 				if v.StoreKey == v.EnvName {
-					return UserError(fmt.Sprintf("Cannot resolve: key %q (required by .secrets.yaml) is not in the store.", v.EnvName))
+					return UserError(fmt.Sprintf("Cannot resolve: key %q (required by .vars.yaml) is not in the store.", v.EnvName))
 				}
 				return UserError(fmt.Sprintf("Cannot resolve: key %q (mapped from %q) is not in the store.", v.StoreKey, v.EnvName))
 			}

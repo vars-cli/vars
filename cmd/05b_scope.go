@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
+	"github.com/vars-cli/vars/internal/agent"
 )
 
 func init() {

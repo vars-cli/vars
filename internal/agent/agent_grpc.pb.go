@@ -19,20 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Secrets_Get_FullMethodName         = "/agent.Secrets/Get"
-	Secrets_List_FullMethodName        = "/agent.Secrets/List"
-	Secrets_Set_FullMethodName         = "/agent.Secrets/Set"
-	Secrets_Delete_FullMethodName      = "/agent.Secrets/Delete"
-	Secrets_Passwd_FullMethodName      = "/agent.Secrets/Passwd"
-	Secrets_Rename_FullMethodName      = "/agent.Secrets/Rename"
-	Secrets_History_FullMethodName     = "/agent.Secrets/History"
-	Secrets_SetAgentTTL_FullMethodName = "/agent.Secrets/SetAgentTTL"
+	Vars_Get_FullMethodName         = "/agent.Vars/Get"
+	Vars_List_FullMethodName        = "/agent.Vars/List"
+	Vars_Set_FullMethodName         = "/agent.Vars/Set"
+	Vars_Delete_FullMethodName      = "/agent.Vars/Delete"
+	Vars_Passwd_FullMethodName      = "/agent.Vars/Passwd"
+	Vars_Rename_FullMethodName      = "/agent.Vars/Rename"
+	Vars_History_FullMethodName     = "/agent.Vars/History"
+	Vars_SetAgentTTL_FullMethodName = "/agent.Vars/SetAgentTTL"
 )
 
-// SecretsClient is the client API for Secrets service.
+// VarsClient is the client API for Vars service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type SecretsClient interface {
+type VarsClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
@@ -43,98 +43,98 @@ type SecretsClient interface {
 	SetAgentTTL(ctx context.Context, in *SetAgentTTLRequest, opts ...grpc.CallOption) (*SetAgentTTLResponse, error)
 }
 
-type secretsClient struct {
+type varsClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewSecretsClient(cc grpc.ClientConnInterface) SecretsClient {
-	return &secretsClient{cc}
+func NewVarsClient(cc grpc.ClientConnInterface) VarsClient {
+	return &varsClient{cc}
 }
 
-func (c *secretsClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *varsClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, Secrets_Get_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_Get_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error) {
+func (c *varsClient) List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListResponse)
-	err := c.cc.Invoke(ctx, Secrets_List_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_List_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+func (c *varsClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetResponse)
-	err := c.cc.Invoke(ctx, Secrets_Set_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_Set_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
+func (c *varsClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteResponse)
-	err := c.cc.Invoke(ctx, Secrets_Delete_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_Delete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) Passwd(ctx context.Context, in *PasswdRequest, opts ...grpc.CallOption) (*PasswdResponse, error) {
+func (c *varsClient) Passwd(ctx context.Context, in *PasswdRequest, opts ...grpc.CallOption) (*PasswdResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PasswdResponse)
-	err := c.cc.Invoke(ctx, Secrets_Passwd_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_Passwd_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) Rename(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*RenameResponse, error) {
+func (c *varsClient) Rename(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*RenameResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RenameResponse)
-	err := c.cc.Invoke(ctx, Secrets_Rename_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_Rename_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error) {
+func (c *varsClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HistoryResponse)
-	err := c.cc.Invoke(ctx, Secrets_History_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_History_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *secretsClient) SetAgentTTL(ctx context.Context, in *SetAgentTTLRequest, opts ...grpc.CallOption) (*SetAgentTTLResponse, error) {
+func (c *varsClient) SetAgentTTL(ctx context.Context, in *SetAgentTTLRequest, opts ...grpc.CallOption) (*SetAgentTTLResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetAgentTTLResponse)
-	err := c.cc.Invoke(ctx, Secrets_SetAgentTTL_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Vars_SetAgentTTL_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// SecretsServer is the server API for Secrets service.
-// All implementations must embed UnimplementedSecretsServer
+// VarsServer is the server API for Vars service.
+// All implementations must embed UnimplementedVarsServer
 // for forward compatibility.
-type SecretsServer interface {
+type VarsServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	Set(context.Context, *SetRequest) (*SetResponse, error)
@@ -143,243 +143,243 @@ type SecretsServer interface {
 	Rename(context.Context, *RenameRequest) (*RenameResponse, error)
 	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
 	SetAgentTTL(context.Context, *SetAgentTTLRequest) (*SetAgentTTLResponse, error)
-	mustEmbedUnimplementedSecretsServer()
+	mustEmbedUnimplementedVarsServer()
 }
 
-// UnimplementedSecretsServer must be embedded to have
+// UnimplementedVarsServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedSecretsServer struct{}
+type UnimplementedVarsServer struct{}
 
-func (UnimplementedSecretsServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedVarsServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedSecretsServer) List(context.Context, *ListRequest) (*ListResponse, error) {
+func (UnimplementedVarsServer) List(context.Context, *ListRequest) (*ListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method List not implemented")
 }
-func (UnimplementedSecretsServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
+func (UnimplementedVarsServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedSecretsServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
+func (UnimplementedVarsServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
 }
-func (UnimplementedSecretsServer) Passwd(context.Context, *PasswdRequest) (*PasswdResponse, error) {
+func (UnimplementedVarsServer) Passwd(context.Context, *PasswdRequest) (*PasswdResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Passwd not implemented")
 }
-func (UnimplementedSecretsServer) Rename(context.Context, *RenameRequest) (*RenameResponse, error) {
+func (UnimplementedVarsServer) Rename(context.Context, *RenameRequest) (*RenameResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Rename not implemented")
 }
-func (UnimplementedSecretsServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
+func (UnimplementedVarsServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method History not implemented")
 }
-func (UnimplementedSecretsServer) SetAgentTTL(context.Context, *SetAgentTTLRequest) (*SetAgentTTLResponse, error) {
+func (UnimplementedVarsServer) SetAgentTTL(context.Context, *SetAgentTTLRequest) (*SetAgentTTLResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetAgentTTL not implemented")
 }
-func (UnimplementedSecretsServer) mustEmbedUnimplementedSecretsServer() {}
-func (UnimplementedSecretsServer) testEmbeddedByValue()                 {}
+func (UnimplementedVarsServer) mustEmbedUnimplementedVarsServer() {}
+func (UnimplementedVarsServer) testEmbeddedByValue()              {}
 
-// UnsafeSecretsServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SecretsServer will
+// UnsafeVarsServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to VarsServer will
 // result in compilation errors.
-type UnsafeSecretsServer interface {
-	mustEmbedUnimplementedSecretsServer()
+type UnsafeVarsServer interface {
+	mustEmbedUnimplementedVarsServer()
 }
 
-func RegisterSecretsServer(s grpc.ServiceRegistrar, srv SecretsServer) {
-	// If the following call panics, it indicates UnimplementedSecretsServer was
+func RegisterVarsServer(s grpc.ServiceRegistrar, srv VarsServer) {
+	// If the following call panics, it indicates UnimplementedVarsServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Secrets_ServiceDesc, srv)
+	s.RegisterService(&Vars_ServiceDesc, srv)
 }
 
-func _Secrets_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).Get(ctx, in)
+		return srv.(VarsServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_Get_FullMethodName,
+		FullMethod: Vars_Get_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).Get(ctx, req.(*GetRequest))
+		return srv.(VarsServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).List(ctx, in)
+		return srv.(VarsServer).List(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_List_FullMethodName,
+		FullMethod: Vars_List_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).List(ctx, req.(*ListRequest))
+		return srv.(VarsServer).List(ctx, req.(*ListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).Set(ctx, in)
+		return srv.(VarsServer).Set(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_Set_FullMethodName,
+		FullMethod: Vars_Set_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).Set(ctx, req.(*SetRequest))
+		return srv.(VarsServer).Set(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).Delete(ctx, in)
+		return srv.(VarsServer).Delete(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_Delete_FullMethodName,
+		FullMethod: Vars_Delete_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).Delete(ctx, req.(*DeleteRequest))
+		return srv.(VarsServer).Delete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_Passwd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_Passwd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PasswdRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).Passwd(ctx, in)
+		return srv.(VarsServer).Passwd(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_Passwd_FullMethodName,
+		FullMethod: Vars_Passwd_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).Passwd(ctx, req.(*PasswdRequest))
+		return srv.(VarsServer).Passwd(ctx, req.(*PasswdRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_Rename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_Rename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RenameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).Rename(ctx, in)
+		return srv.(VarsServer).Rename(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_Rename_FullMethodName,
+		FullMethod: Vars_Rename_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).Rename(ctx, req.(*RenameRequest))
+		return srv.(VarsServer).Rename(ctx, req.(*RenameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HistoryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).History(ctx, in)
+		return srv.(VarsServer).History(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_History_FullMethodName,
+		FullMethod: Vars_History_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).History(ctx, req.(*HistoryRequest))
+		return srv.(VarsServer).History(ctx, req.(*HistoryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Secrets_SetAgentTTL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Vars_SetAgentTTL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetAgentTTLRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SecretsServer).SetAgentTTL(ctx, in)
+		return srv.(VarsServer).SetAgentTTL(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Secrets_SetAgentTTL_FullMethodName,
+		FullMethod: Vars_SetAgentTTL_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SecretsServer).SetAgentTTL(ctx, req.(*SetAgentTTLRequest))
+		return srv.(VarsServer).SetAgentTTL(ctx, req.(*SetAgentTTLRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Secrets_ServiceDesc is the grpc.ServiceDesc for Secrets service.
+// Vars_ServiceDesc is the grpc.ServiceDesc for Vars service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Secrets_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "agent.Secrets",
-	HandlerType: (*SecretsServer)(nil),
+var Vars_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "agent.Vars",
+	HandlerType: (*VarsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Get",
-			Handler:    _Secrets_Get_Handler,
+			Handler:    _Vars_Get_Handler,
 		},
 		{
 			MethodName: "List",
-			Handler:    _Secrets_List_Handler,
+			Handler:    _Vars_List_Handler,
 		},
 		{
 			MethodName: "Set",
-			Handler:    _Secrets_Set_Handler,
+			Handler:    _Vars_Set_Handler,
 		},
 		{
 			MethodName: "Delete",
-			Handler:    _Secrets_Delete_Handler,
+			Handler:    _Vars_Delete_Handler,
 		},
 		{
 			MethodName: "Passwd",
-			Handler:    _Secrets_Passwd_Handler,
+			Handler:    _Vars_Passwd_Handler,
 		},
 		{
 			MethodName: "Rename",
-			Handler:    _Secrets_Rename_Handler,
+			Handler:    _Vars_Rename_Handler,
 		},
 		{
 			MethodName: "History",
-			Handler:    _Secrets_History_Handler,
+			Handler:    _Vars_History_Handler,
 		},
 		{
 			MethodName: "SetAgentTTL",
-			Handler:    _Secrets_SetAgentTTL_Handler,
+			Handler:    _Vars_SetAgentTTL_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -781,8 +781,8 @@ const file_internal_agent_agent_proto_rawDesc = "" +
 	"\n" +
 	"passphrase\x18\x03 \x01(\tR\n" +
 	"passphrase\"\x10\n" +
-	"\x0eRenameResponse2\xbb\x03\n" +
-	"\aSecrets\x12,\n" +
+	"\x0eRenameResponse2\xb8\x03\n" +
+	"\x04Vars\x12,\n" +
 	"\x03Get\x12\x11.agent.GetRequest\x1a\x12.agent.GetResponse\x12/\n" +
 	"\x04List\x12\x12.agent.ListRequest\x1a\x13.agent.ListResponse\x12,\n" +
 	"\x03Set\x12\x11.agent.SetRequest\x1a\x12.agent.SetResponse\x125\n" +
@@ -790,7 +790,7 @@ const file_internal_agent_agent_proto_rawDesc = "" +
 	"\x06Passwd\x12\x14.agent.PasswdRequest\x1a\x15.agent.PasswdResponse\x125\n" +
 	"\x06Rename\x12\x14.agent.RenameRequest\x1a\x15.agent.RenameResponse\x128\n" +
 	"\aHistory\x12\x15.agent.HistoryRequest\x1a\x16.agent.HistoryResponse\x12D\n" +
-	"\vSetAgentTTL\x12\x19.agent.SetAgentTTLRequest\x1a\x1a.agent.SetAgentTTLResponseB,Z*github.com/brickpop/secrets/internal/agentb\x06proto3"
+	"\vSetAgentTTL\x12\x19.agent.SetAgentTTLRequest\x1a\x1a.agent.SetAgentTTLResponseB)Z'github.com/vars-cli/vars/internal/agentb\x06proto3"
 
 var (
 	file_internal_agent_agent_proto_rawDescOnce sync.Once
@@ -824,22 +824,22 @@ var file_internal_agent_agent_proto_goTypes = []any{
 	(*RenameResponse)(nil),      // 15: agent.RenameResponse
 }
 var file_internal_agent_agent_proto_depIdxs = []int32{
-	0,  // 0: agent.Secrets.Get:input_type -> agent.GetRequest
-	2,  // 1: agent.Secrets.List:input_type -> agent.ListRequest
-	4,  // 2: agent.Secrets.Set:input_type -> agent.SetRequest
-	6,  // 3: agent.Secrets.Delete:input_type -> agent.DeleteRequest
-	10, // 4: agent.Secrets.Passwd:input_type -> agent.PasswdRequest
-	14, // 5: agent.Secrets.Rename:input_type -> agent.RenameRequest
-	8,  // 6: agent.Secrets.History:input_type -> agent.HistoryRequest
-	12, // 7: agent.Secrets.SetAgentTTL:input_type -> agent.SetAgentTTLRequest
-	1,  // 8: agent.Secrets.Get:output_type -> agent.GetResponse
-	3,  // 9: agent.Secrets.List:output_type -> agent.ListResponse
-	5,  // 10: agent.Secrets.Set:output_type -> agent.SetResponse
-	7,  // 11: agent.Secrets.Delete:output_type -> agent.DeleteResponse
-	11, // 12: agent.Secrets.Passwd:output_type -> agent.PasswdResponse
-	15, // 13: agent.Secrets.Rename:output_type -> agent.RenameResponse
-	9,  // 14: agent.Secrets.History:output_type -> agent.HistoryResponse
-	13, // 15: agent.Secrets.SetAgentTTL:output_type -> agent.SetAgentTTLResponse
+	0,  // 0: agent.Vars.Get:input_type -> agent.GetRequest
+	2,  // 1: agent.Vars.List:input_type -> agent.ListRequest
+	4,  // 2: agent.Vars.Set:input_type -> agent.SetRequest
+	6,  // 3: agent.Vars.Delete:input_type -> agent.DeleteRequest
+	10, // 4: agent.Vars.Passwd:input_type -> agent.PasswdRequest
+	14, // 5: agent.Vars.Rename:input_type -> agent.RenameRequest
+	8,  // 6: agent.Vars.History:input_type -> agent.HistoryRequest
+	12, // 7: agent.Vars.SetAgentTTL:input_type -> agent.SetAgentTTLRequest
+	1,  // 8: agent.Vars.Get:output_type -> agent.GetResponse
+	3,  // 9: agent.Vars.List:output_type -> agent.ListResponse
+	5,  // 10: agent.Vars.Set:output_type -> agent.SetResponse
+	7,  // 11: agent.Vars.Delete:output_type -> agent.DeleteResponse
+	11, // 12: agent.Vars.Passwd:output_type -> agent.PasswdResponse
+	15, // 13: agent.Vars.Rename:output_type -> agent.RenameResponse
+	9,  // 14: agent.Vars.History:output_type -> agent.HistoryResponse
+	13, // 15: agent.Vars.SetAgentTTL:output_type -> agent.SetAgentTTLResponse
 	8,  // [8:16] is the sub-list for method output_type
 	0,  // [0:8] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name

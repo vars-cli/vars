@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package agent;
 
-option go_package = "github.com/brickpop/secrets/internal/agent";
+option go_package = "github.com/vars-cli/vars/internal/agent";
 
-service Secrets {
+service Vars {
   rpc Get(GetRequest) returns (GetResponse);
   rpc List(ListRequest) returns (ListResponse);
   rpc Set(SetRequest) returns (SetResponse);

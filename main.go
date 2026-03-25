@@ -1,6 +1,6 @@
 package main
 
-import "github.com/brickpop/secrets/cmd"
+import "github.com/vars-cli/vars/cmd"
 
 func main() {
 	cmd.Execute()

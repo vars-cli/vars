@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/brickpop/secrets/internal/crypto"
-	"github.com/brickpop/secrets/internal/store"
+	"github.com/vars-cli/vars/internal/crypto"
+	"github.com/vars-cli/vars/internal/store"
 )
 
 // fastBackend is a trivial no-op crypto backend for tests.
@@ -41,7 +41,7 @@ func startTestServer(t *testing.T, data map[string]string, passphrase string, tt
 
 	// Create the store dir and init a store so SaveData works
 	storeDir := t.TempDir()
-	t.Setenv("SECRETS_STORE_DIR", storeDir)
+	t.Setenv("VARS_STORE_DIR", storeDir)
 	backend := fastBackend{}
 
 	// Init the store so the directory/file exist
@@ -603,7 +603,6 @@ func TestHistory_DeleteCascades(t *testing.T) {
 	}
 }
 
-
 func TestHistory_RenameCarriesHistory(t *testing.T) {
 	sockPath, srv := startTestServer(t, map[string]string{
 		"OLD": "v1",
@@ -656,7 +655,7 @@ func TestHistory_EmptyForNewKey(t *testing.T) {
 func TestSetPersistsToDisk(t *testing.T) {
 	dir := t.TempDir()
 	storeDir := t.TempDir()
-	t.Setenv("SECRETS_STORE_DIR", storeDir)
+	t.Setenv("VARS_STORE_DIR", storeDir)
 	sockPath := filepath.Join(dir, "agent.sock")
 
 	backend := fastBackend{}
@@ -689,4 +688,3 @@ func TestSetPersistsToDisk(t *testing.T) {
 		t.Fatalf("disk value = %q, want %q", val, "disk_value")
 	}
 }
-

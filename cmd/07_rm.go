@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/brickpop/secrets/internal/agent"
+	"github.com/vars-cli/vars/internal/agent"
 )
 
 func init() {
@@ -18,7 +18,7 @@ var rmForce bool
 
 var rmCmd = &cobra.Command{
 	Use:   "rm <key> [key...]",
-	Short: "Remove one or more secrets from the store",
+	Short: "Remove one or more entries from the store",
 	Long:  `Delete keys from the store. Prompts for confirmation unless --force is used.`,
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

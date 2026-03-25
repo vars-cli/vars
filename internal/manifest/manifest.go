@@ -1,4 +1,4 @@
-// Package manifest parses .secrets.yaml and .secrets.local.yaml
+// Package manifest parses .vars.yaml and .vars.local.yaml
 // and resolves variable names to store keys.
 package manifest
 
@@ -9,14 +9,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Manifest represents a parsed .secrets.yaml file (committed, team-owned).
+// Manifest represents a parsed .vars.yaml file (committed, team-owned).
 type Manifest struct {
 	Keys     []string                     `yaml:"keys"`
 	Mappings map[string]string            `yaml:"mappings"`
 	Profiles map[string]map[string]string `yaml:"profiles"`
 }
 
-// LocalManifest represents a parsed .secrets.local.yaml file (personal, git-ignored).
+// LocalManifest represents a parsed .vars.local.yaml file (personal, git-ignored).
 type LocalManifest struct {
 	Mappings map[string]string            `yaml:"mappings"`
 	Profiles map[string]map[string]string `yaml:"profiles"`
@@ -28,7 +28,7 @@ type ResolvedVar struct {
 	StoreKey string // the key to look up in the store
 }
 
-// Load parses a .secrets.yaml file.
+// Load parses a .vars.yaml file.
 func Load(path string) (*Manifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -47,7 +47,7 @@ func Load(path string) (*Manifest, error) {
 	return &m, nil
 }
 
-// LoadLocal parses a .secrets.local.yaml file (personal overrides, git-ignored).
+// LoadLocal parses a .vars.local.yaml file (personal overrides, git-ignored).
 // Returns an empty LocalManifest if the file does not exist.
 func LoadLocal(path string) (*LocalManifest, error) {
 	data, err := os.ReadFile(path)
@@ -66,7 +66,7 @@ func LoadLocal(path string) (*LocalManifest, error) {
 }
 
 // Resolve maps each manifest key to a store key.
-// localPath is the path to .secrets.local.yaml (may not exist).
+// localPath is the path to .vars.local.yaml (may not exist).
 // profile is the active profile name (empty string = auto-detect "default" if present).
 //
 // Resolution priority for each key:
