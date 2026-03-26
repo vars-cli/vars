@@ -1,14 +1,14 @@
-# vars
+# Safe Vars
 
-One encrypted store for all your environment variables, shared across any number of projects.
+A general purpose store for all your environment variables, shared across any number of projects and scopes.
 
 ---
 
-If you work across multiple projects, the problems are familiar: secrets duplicated across `.env` files, rotations that miss half the repos, one accidental commit away from a leak — and now AI coding assistants that can read everything in your working directory.
+If you work across multiple projects, the problems are familiar: secrets duplicated across various `.env` files, rotations that miss half the repos, one accidental commit away from a leak, and now AI agents that can read everything in your working directory.
 
-`vars` keeps everything in a single encrypted personal store and resolves secrets as environment variables on demand. No server, no account, no cloud. **Opt-in and non-breaking** — teammates who don't use it are unaffected.
+Safe Vars keeps everything in an encrypted personal store and resolves environment variables on demand. It is completely opt-in and non-breaking: teammates who don't use it are unaffected.
 
-`vars` loads env vars into your session. What you do with them is up to you.
+Safe Vars loads env vars into your session. What you do with them is up to you.
 
 ---
 
@@ -145,6 +145,19 @@ Use `mappings:` to rename store keys for everyone on the team, regardless of the
 mappings:
   SERVER_API_KEY: SERVER_API_KEY_v2    # applies to all profiles
 ```
+
+### Inline literals
+
+Profile entries starting with `=` emit a literal value rather than looking up a store key:
+
+```yaml
+profiles:
+  ci:
+    LOG_LEVEL: =info
+    DRY_RUN: =true
+```
+
+Useful for environment flags and non-secret values that vary by profile but don't belong in the store.
 
 ---
 

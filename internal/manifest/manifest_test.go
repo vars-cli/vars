@@ -206,7 +206,7 @@ keys:
   - BAR
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -232,7 +232,7 @@ mappings:
   BAZ: BAZ_personal
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -262,7 +262,7 @@ mappings:
   FOO: FOO_alice
 `)
 
-	vars, err := Resolve(manifestPath, localPath, "")
+	vars, _, err := Resolve(manifestPath, localPath, "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -287,7 +287,7 @@ profiles:
     RPC_URL: sepolia/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -320,7 +320,7 @@ profiles:
     PRIVATE_KEY: prod/PRIVATE_KEY_alice
 `)
 
-	vars, err := Resolve(manifestPath, localPath, "mainnet")
+	vars, _, err := Resolve(manifestPath, localPath, "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -342,7 +342,7 @@ profiles:
     PRIVATE_KEY: prod/PRIVATE_KEY
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "mainnet")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -368,7 +368,7 @@ keys:
   - BRAVO
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -387,10 +387,13 @@ keys:
   - FOO
 `)
 
-	// Unknown profile → no profile matches → identity
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "nonexistent")
+	// Unknown profile → no profile matches → identity, profileFound=false
+	vars, profileFound, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "nonexistent")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
+	}
+	if profileFound {
+		t.Fatal("expected profileFound=false for unknown profile")
 	}
 	if vars[0].StoreKey != "FOO" {
 		t.Fatalf("unknown profile should fall through to identity: got %q", vars[0].StoreKey)
@@ -407,7 +410,7 @@ profiles:
     RPC_URL: prod/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -428,11 +431,69 @@ profiles:
     RPC_URL: local/RPC_URL
 `)
 
-	vars, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if vars[0].StoreKey != "local/RPC_URL" {
 		t.Fatalf("default profile in local file should be auto-applied: got %q", vars[0].StoreKey)
+	}
+}
+
+func TestResolve_InlineLiteralValue(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
+keys:
+  - LOG_LEVEL
+  - API_KEY
+profiles:
+  ci:
+    LOG_LEVEL: =info
+    API_KEY: ci/API_KEY
+`)
+
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "ci")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	for _, v := range vars {
+		switch v.EnvName {
+		case "LOG_LEVEL":
+			if !v.IsInline {
+				t.Fatal("LOG_LEVEL should be inline")
+			}
+			if v.InlineValue != "info" {
+				t.Fatalf("InlineValue = %q, want \"info\"", v.InlineValue)
+			}
+		case "API_KEY":
+			if v.IsInline {
+				t.Fatal("API_KEY should not be inline")
+			}
+			if v.StoreKey != "ci/API_KEY" {
+				t.Fatalf("StoreKey = %q, want \"ci/API_KEY\"", v.StoreKey)
+			}
+		}
+	}
+}
+
+func TestResolve_InlineLiteralEmptyValue(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeFile(t, dir, ".vars.yaml", `
+keys:
+  - DRY_RUN
+profiles:
+  test:
+    DRY_RUN: =
+`)
+
+	vars, _, err := Resolve(manifestPath, filepath.Join(dir, ".vars.local.yaml"), "test")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !vars[0].IsInline {
+		t.Fatal("DRY_RUN should be inline")
+	}
+	if vars[0].InlineValue != "" {
+		t.Fatalf("InlineValue = %q, want \"\"", vars[0].InlineValue)
 	}
 }

@@ -5,6 +5,7 @@ package manifest
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -22,10 +23,12 @@ type LocalManifest struct {
 	Profiles map[string]map[string]string `yaml:"profiles"`
 }
 
-// ResolvedVar is a variable name mapped to its store key.
+// ResolvedVar is a variable name mapped to its store key, or an inline literal value.
 type ResolvedVar struct {
-	EnvName  string // the env var name to export
-	StoreKey string // the key to look up in the store
+	EnvName     string // the env var name to export
+	StoreKey    string // the key to look up in the store (empty when IsInline)
+	InlineValue string // literal value when IsInline is true
+	IsInline    bool   // true when value is a literal (=value syntax in profile)
 }
 
 // Load parses a .vars.yaml file.
@@ -69,25 +72,31 @@ func LoadLocal(path string) (*LocalManifest, error) {
 // localPath is the path to .vars.local.yaml (may not exist).
 // profile is the active profile name (empty string = auto-detect "default" if present).
 //
+// Returns profileFound=false when an explicit profile was requested but is not
+// defined in either manifest. Callers may warn the user; resolution continues
+// using mappings and bare keys.
+//
 // Resolution priority for each key:
 //  1. Active profile, local file override
 //  2. Active profile, committed manifest
 //  3. Local mappings
 //  4. Committed mappings
 //  5. Bare key (identity)
-func Resolve(manifestPath, localPath, profile string) ([]ResolvedVar, error) {
-	m, err := Load(manifestPath)
-	if err != nil {
-		return nil, err
+func Resolve(manifestPath, localPath, profile string) (vars []ResolvedVar, profileFound bool, err error) {
+	m, loadErr := Load(manifestPath)
+	if loadErr != nil {
+		return nil, false, loadErr
 	}
 
-	local, err := LoadLocal(localPath)
-	if err != nil {
-		return nil, err
+	local, loadErr := LoadLocal(localPath)
+	if loadErr != nil {
+		return nil, false, loadErr
 	}
+
+	explicit := profile != ""
 
 	// Auto-apply "default" profile when no profile is specified and one exists.
-	if profile == "" {
+	if !explicit {
 		if _, ok := m.Profiles["default"]; ok {
 			profile = "default"
 		} else if _, ok := local.Profiles["default"]; ok {
@@ -95,14 +104,21 @@ func Resolve(manifestPath, localPath, profile string) ([]ResolvedVar, error) {
 		}
 	}
 
-	vars := make([]ResolvedVar, 0, len(m.Keys))
+	// An explicitly-requested profile is "found" only if it exists in either manifest.
+	profileFound = !explicit ||
+		(m.Profiles != nil && m.Profiles[profile] != nil) ||
+		(local.Profiles != nil && local.Profiles[profile] != nil)
+
+	vars = make([]ResolvedVar, 0, len(m.Keys))
 	for _, key := range m.Keys {
-		vars = append(vars, ResolvedVar{
-			EnvName:  key,
-			StoreKey: resolveKey(key, profile, m, local),
-		})
+		resolved := resolveKey(key, profile, m, local)
+		if strings.HasPrefix(resolved, "=") {
+			vars = append(vars, ResolvedVar{EnvName: key, InlineValue: resolved[1:], IsInline: true})
+		} else {
+			vars = append(vars, ResolvedVar{EnvName: key, StoreKey: resolved})
+		}
 	}
-	return vars, nil
+	return vars, profileFound, nil
 }
 
 // resolveKey returns the store key for a given env var name.

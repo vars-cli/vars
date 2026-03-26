@@ -63,9 +63,12 @@ Resolution priority (per key):
 		}
 
 		localPath := filepath.Join(filepath.Dir(resolveFile), ".vars.local.yaml")
-		vars, err := manifest.Resolve(resolveFile, localPath, resolveProfile)
+		vars, profileFound, err := manifest.Resolve(resolveFile, localPath, resolveProfile)
 		if err != nil {
 			return UserError(err.Error())
+		}
+		if !profileFound {
+			fmt.Fprintf(os.Stderr, "vars: warning: profile %q not found in manifest\n", resolveProfile)
 		}
 
 		if err := ensureAgent(); err != nil {
@@ -101,8 +104,12 @@ Resolution priority (per key):
 		}
 		var entries []entry
 
-		// Resolve manifest keys: store first, stdin dotenv as fallback
+		// Resolve manifest keys: inline literals, then store, then stdin dotenv as fallback
 		for _, v := range vars {
+			if v.IsInline {
+				entries = append(entries, entry{v.EnvName, v.InlineValue, "inline"})
+				continue
+			}
 			val, lookupErr := resolveStoreKey(sockPath, v.StoreKey)
 			if lookupErr != nil {
 				if dotval, ok := stdinMap[v.EnvName]; ok {
