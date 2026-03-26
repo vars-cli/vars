@@ -313,7 +313,7 @@ When a key exists with a different value and neither flag is given, `set` prompt
 | `--dotenv` | — | Output as `KEY=value` |
 | `--fish` | — | Output in fish shell format |
 | `--partial` | — | Skip missing keys instead of erroring |
-| `--origins` | — | Annotate each output line with its source as an inline comment (`# vars`, `# .env`, `# not set`) |
+| `--origins` | — | Annotate each output line with its source as an inline comment (`# vars`, `# stdin`, `# not set`) |
 
 Default output is `export KEY='value'`, which you can pipe into `eval "$(vars resolve)"` in bash/zsh.
 
@@ -322,7 +322,7 @@ Default output is `export KEY='value'`, which you can pipe into `eval "$(vars re
 ```sh
 $ cat .env | vars resolve --partial --origins
 export DB_URL='postgres://...'  # vars
-export API_TOKEN='xyz'          # .env
+export API_TOKEN='xyz'          # stdin
 # STRIPE_SECRET  not set
 ```
 

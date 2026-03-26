@@ -106,7 +106,7 @@ Resolution priority (per key):
 			val, lookupErr := resolveStoreKey(sockPath, v.StoreKey)
 			if lookupErr != nil {
 				if dotval, ok := stdinMap[v.EnvName]; ok {
-					entries = append(entries, entry{v.EnvName, dotval, ".env"})
+					entries = append(entries, entry{v.EnvName, dotval, "stdin"})
 					continue
 				}
 				if resolvePartial {
