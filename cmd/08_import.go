@@ -74,9 +74,8 @@ With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 		isTTY := term.IsTerminal(int(os.Stdin.Fd()))
 
 		type pendingItem struct {
-			key       string
-			value     string
-			isReplace bool
+			key   string
+			value string
 		}
 		var pending []pendingItem
 		var imported, replaced, skipped int
@@ -91,7 +90,7 @@ With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 
 				if getErr != nil {
 					// New key
-					pending = append(pending, pendingItem{key, value, false})
+					pending = append(pending, pendingItem{key, value})
 					imported++
 					continue entryLoop
 				}
@@ -110,7 +109,7 @@ With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 				}
 
 				if importReplace {
-					pending = append(pending, pendingItem{key, value, true})
+					pending = append(pending, pendingItem{key, value})
 					replaced++
 					continue entryLoop
 				}
@@ -128,7 +127,7 @@ With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 
 				switch c := strings.ToLower(strings.TrimSpace(choice)); {
 				case strings.HasPrefix(c, "r"):
-					pending = append(pending, pendingItem{key, value, true})
+					pending = append(pending, pendingItem{key, value})
 					replaced++
 					continue entryLoop
 
@@ -159,25 +158,8 @@ With a scope, keys are prefixed: vars import prod .env → prod/KEY.`,
 			for i, p := range pending {
 				items[i] = agent.SetItem{Key: p.key, Value: p.value}
 			}
-
-			hasReplace := false
-			for _, p := range pending {
-				if p.isReplace {
-					hasReplace = true
-					break
-				}
-			}
-
-			var setErr error
-			if hasReplace {
-				setErr = withPassphrase("Store passphrase to confirm: ", func(passphrase string) error {
-					return agent.Set(sockPath, items, passphrase)
-				})
-			} else {
-				setErr = agent.Set(sockPath, items, "")
-			}
-			if setErr != nil {
-				return UserError(setErr.Error())
+			if err := agent.Set(sockPath, items); err != nil {
+				return UserError(err.Error())
 			}
 		}
 

@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/vars-cli/vars/internal/agent"
 )
@@ -54,12 +56,22 @@ var rmCmd = &cobra.Command{
 					}
 				}
 			}
+
+			isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+			if !isTTY {
+				return UserError("deletion requires confirmation; use --force for non-interactive use")
+			}
+			answer, err := stdinPrompter().Line("Confirm? [y/N] ")
+			if err != nil {
+				return UserError(err.Error())
+			}
+			if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(answer)), "y") {
+				fmt.Fprintln(os.Stderr, "Aborted.")
+				return nil
+			}
 		}
 
-		err := withPassphrase("Store passphrase to confirm: ", func(passphrase string) error {
-			return agent.Delete(sockPath, args, passphrase)
-		})
-		if err != nil {
+		if err := agent.Delete(sockPath, args); err != nil {
 			return UserError(err.Error())
 		}
 

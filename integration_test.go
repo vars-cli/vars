@@ -674,7 +674,7 @@ func TestIntegration_Mv(t *testing.T) {
 
 	r.mustRun("set", "OLD_KEY", "my-value")
 
-	r.mustRun("mv", "OLD_KEY", "NEW_KEY")
+	r.mustRun("mv", "--force", "OLD_KEY", "NEW_KEY")
 
 	// Old key gone
 	r.mustFail("get", "OLD_KEY")
@@ -686,11 +686,23 @@ func TestIntegration_Mv(t *testing.T) {
 	}
 }
 
+func TestIntegration_Mv_RequiresForceInNonTTY(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "OLD_KEY", "my-value")
+
+	_, stderr := r.mustFail("mv", "OLD_KEY", "NEW_KEY")
+	if !strings.Contains(stderr, "--force") {
+		t.Fatalf("expected error mentioning --force, got: %s", stderr)
+	}
+}
+
 func TestIntegration_Mv_MissingKey(t *testing.T) {
 	r := newRunner(t)
 	r.initNoPassphrase()
 
-	_, stderr := r.mustFail("mv", "NONEXISTENT", "NEW_KEY")
+	_, stderr := r.mustFail("mv", "--force", "NONEXISTENT", "NEW_KEY")
 	if !strings.Contains(stderr, "NONEXISTENT") {
 		t.Fatalf("expected error mentioning key name, got: %s", stderr)
 	}
@@ -703,7 +715,7 @@ func TestIntegration_Mv_DestinationExists(t *testing.T) {
 	r.mustRun("set", "KEY_A", "a")
 	r.mustRun("set", "KEY_B", "b")
 
-	_, stderr := r.mustFail("mv", "KEY_A", "KEY_B")
+	_, stderr := r.mustFail("mv", "--force", "KEY_A", "KEY_B")
 	if !strings.Contains(stderr, "KEY_B") {
 		t.Fatalf("expected error mentioning destination key, got: %s", stderr)
 	}
@@ -714,6 +726,18 @@ func TestIntegration_Mv_DestinationExists(t *testing.T) {
 	}
 	if r.mustRun("get", "KEY_B") != "b" {
 		t.Fatal("KEY_B should be unchanged")
+	}
+}
+
+func TestIntegration_Rm_RequiresForceInNonTTY(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "KEY", "value")
+
+	_, stderr := r.mustFail("rm", "KEY")
+	if !strings.Contains(stderr, "--force") {
+		t.Fatalf("expected error mentioning --force, got: %s", stderr)
 	}
 }
 
@@ -1141,7 +1165,7 @@ func TestIntegration_History_MvCarriesHistory(t *testing.T) {
 
 	r.mustRun("set", "OLD_KEY", "v1")
 	r.mustRun("set", "--replace", "OLD_KEY", "v2")
-	r.mustRun("mv", "OLD_KEY", "NEW_KEY")
+	r.mustRun("mv", "--force", "OLD_KEY", "NEW_KEY")
 
 	// History under new name
 	out := r.mustRun("history", "NEW_KEY")
@@ -1296,5 +1320,80 @@ func TestIntegration_Resolve_ShellEnvFallback_Origin(t *testing.T) {
 	// The actual value must not be emitted
 	if strings.Contains(out, "http://from-shell") {
 		t.Fatalf("shell value must not appear in output, got: %s", out)
+	}
+}
+
+func TestIntegration_Init(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	// vars init creates .vars.yaml
+	_, stderr, err := r.run("init")
+	if err != nil {
+		t.Fatalf("vars init failed: %v\nstderr: %s", err, stderr)
+	}
+	content, readErr := os.ReadFile(filepath.Join(r.workDir, ".vars.yaml"))
+	if readErr != nil {
+		t.Fatalf(".vars.yaml not created: %v", readErr)
+	}
+	if !strings.Contains(string(content), "keys:") {
+		t.Fatalf(".vars.yaml missing keys: section, got: %s", content)
+	}
+
+	// vars init errors if .vars.yaml already exists
+	_, stderr, err = r.run("init")
+	if err == nil {
+		t.Fatal("vars init should fail when .vars.yaml already exists")
+	}
+	if !strings.Contains(stderr, "already exists") {
+		t.Fatalf("expected 'already exists' error, got: %s", stderr)
+	}
+}
+
+func TestIntegration_GitignoreWarning(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	// Set up a project with .vars.yaml so PersistentPreRun fires
+	r.writeFile(".vars.yaml", "keys:\n  - KEY\n")
+	r.mustRun("set", "KEY", "val")
+
+	// .vars.local.yaml exists but no .gitignore — no warning expected
+	r.writeFile(".vars.local.yaml", "profiles: {}\n")
+	_, stderr := r.mustRunWithStderr("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
+	if strings.Contains(stderr, "not in .gitignore") {
+		t.Fatalf("should not warn when no .gitignore exists, got: %s", stderr)
+	}
+
+	// .gitignore exists but doesn't mention .vars.local.yaml — warning expected
+	r.writeFile(".gitignore", "*.log\n")
+	_, stderr = r.mustRunWithStderr("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
+	if !strings.Contains(stderr, ".vars.local.yaml") {
+		t.Fatalf("expected warning about .vars.local.yaml, got: %s", stderr)
+	}
+
+	// .gitignore covers .vars.local.yaml — no warning
+	r.writeFile(".gitignore", "*.log\n.vars.local.yaml\n")
+	_, stderr = r.mustRunWithStderr("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"))
+	if strings.Contains(stderr, "not in .gitignore") {
+		t.Fatalf("should not warn when .gitignore covers file, got: %s", stderr)
+	}
+}
+
+func TestIntegration_Resolve_ProfileNotFound(t *testing.T) {
+	r := newRunner(t)
+	r.initNoPassphrase()
+
+	r.mustRun("set", "KEY", "val")
+	r.writeFile(".vars.yaml", `keys:
+  - KEY
+profiles:
+  mainnet:
+    KEY: prod/KEY
+`)
+
+	_, stderr := r.mustRunWithStderr("resolve", "-f", filepath.Join(r.workDir, ".vars.yaml"), "--profile", "nonexistent", "--partial")
+	if !strings.Contains(stderr, "nonexistent") {
+		t.Fatalf("expected warning mentioning profile name, got: %s", stderr)
 	}
 }

@@ -58,8 +58,6 @@ shell history).`,
 		sockPath := agentSocketPath()
 		isTTY := term.IsTerminal(int(os.Stdin.Fd()))
 
-		isReplace := false
-
 		// Conflict resolution loop (handles rename re-checks)
 		for {
 			existing, getErr := agent.Get(sockPath, key)
@@ -79,8 +77,6 @@ shell history).`,
 				fmt.Fprintln(os.Stderr, "Skipped.")
 				return nil
 			}
-
-			isReplace = true
 
 			if setReplace {
 				break
@@ -110,8 +106,7 @@ shell history).`,
 					return nil
 				}
 				key = key + "_" + sfx
-				isReplace = false // renamed key may be new — re-check
-				continue
+				continue // renamed key may be new — re-check
 			default: // "s" or unrecognised
 				fmt.Fprintln(os.Stderr, "Skipped.")
 				return nil
@@ -119,17 +114,8 @@ shell history).`,
 			break
 		}
 
-		item := []agent.SetItem{{Key: key, Value: value}}
-		var setErr error
-		if isReplace {
-			setErr = withPassphrase("Store passphrase to confirm: ", func(passphrase string) error {
-				return agent.Set(sockPath, item, passphrase)
-			})
-		} else {
-			setErr = agent.Set(sockPath, item, "")
-		}
-		if setErr != nil {
-			return UserError(setErr.Error())
+		if err := agent.Set(sockPath, []agent.SetItem{{Key: key, Value: value}}); err != nil {
+			return UserError(err.Error())
 		}
 
 		printManifestHint(key)

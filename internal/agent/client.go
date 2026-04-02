@@ -82,8 +82,7 @@ func List(sockPath string) ([]string, error) {
 }
 
 // Set stores one or more key-value pairs via the agent.
-// Passphrase is required when any item replaces an existing key.
-func Set(sockPath string, items []SetItem, passphrase string) error {
+func Set(sockPath string, items []SetItem) error {
 	conn, err := newConn(sockPath)
 	if err != nil {
 		return fmt.Errorf("connecting to agent: %w", err)
@@ -97,12 +96,12 @@ func Set(sockPath string, items []SetItem, passphrase string) error {
 	for i := range items {
 		protoItems[i] = &items[i]
 	}
-	_, err = NewVarsClient(conn).Set(ctx, &SetRequest{Items: protoItems, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Set(ctx, &SetRequest{Items: protoItems})
 	return statusMsg(err)
 }
 
-// Delete removes one or more keys and their history via the agent. Passphrase is always required.
-func Delete(sockPath string, keys []string, passphrase string) error {
+// Delete removes one or more keys and their history via the agent.
+func Delete(sockPath string, keys []string) error {
 	conn, err := newConn(sockPath)
 	if err != nil {
 		return fmt.Errorf("connecting to agent: %w", err)
@@ -112,7 +111,7 @@ func Delete(sockPath string, keys []string, passphrase string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewVarsClient(conn).Delete(ctx, &DeleteRequest{Keys: keys, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Delete(ctx, &DeleteRequest{Keys: keys})
 	return statusMsg(err)
 }
 
@@ -150,8 +149,8 @@ func Passwd(sockPath, oldPass, newPass string) error {
 	return statusMsg(err)
 }
 
-// Rename atomically renames a key in the store. Passphrase is always required.
-func Rename(sockPath, from, to, passphrase string) error {
+// Rename atomically renames a key in the store.
+func Rename(sockPath, from, to string) error {
 	conn, err := newConn(sockPath)
 	if err != nil {
 		return fmt.Errorf("connecting to agent: %w", err)
@@ -161,7 +160,7 @@ func Rename(sockPath, from, to, passphrase string) error {
 	ctx, cancel := ctx30s()
 	defer cancel()
 
-	_, err = NewVarsClient(conn).Rename(ctx, &RenameRequest{From: from, To: to, Passphrase: passphrase})
+	_, err = NewVarsClient(conn).Rename(ctx, &RenameRequest{From: from, To: to})
 	return statusMsg(err)
 }
 

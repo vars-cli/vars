@@ -175,16 +175,6 @@ func (s *Server) Set(_ context.Context, req *SetRequest) (*SetResponse, error) {
 	s.dataMu.Lock()
 	defer s.dataMu.Unlock()
 
-	// Check passphrase once upfront: required if any item replaces an existing key.
-	for _, item := range req.Items {
-		if _, exists := s.data[item.Key]; exists {
-			if !s.checkPassphrase(req.Passphrase) {
-				return nil, status.Error(codes.PermissionDenied, ErrPassphraseRequired)
-			}
-			break // verified once is enough
-		}
-	}
-
 	// Apply all mutations, recording history for replacements.
 	for _, item := range req.Items {
 		if old, exists := s.data[item.Key]; exists {
@@ -204,10 +194,6 @@ func (s *Server) Set(_ context.Context, req *SetRequest) (*SetResponse, error) {
 func (s *Server) Delete(_ context.Context, req *DeleteRequest) (*DeleteResponse, error) {
 	s.dataMu.Lock()
 	defer s.dataMu.Unlock()
-
-	if !s.checkPassphrase(req.Passphrase) {
-		return nil, status.Error(codes.PermissionDenied, ErrPassphraseRequired)
-	}
 
 	// Verify all keys exist before mutating anything.
 	for _, key := range req.Keys {
@@ -266,8 +252,8 @@ func (s *Server) Rename(_ context.Context, req *RenameRequest) (*RenameResponse,
 	s.dataMu.Lock()
 	defer s.dataMu.Unlock()
 
-	if !s.checkPassphrase(req.Passphrase) {
-		return nil, status.Error(codes.PermissionDenied, ErrPassphraseRequired)
+	if req.From == req.To {
+		return nil, status.Error(codes.InvalidArgument, "source and destination are the same key")
 	}
 
 	val, exists := s.data[req.From]

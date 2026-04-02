@@ -44,28 +44,6 @@ func ensureAgent() error {
 	return err
 }
 
-// withPassphrase runs fn with the trial-passphrase approach.
-// First tries empty passphrase. If agent returns "passphrase required",
-// prompts the user and retries once.
-func withPassphrase(prompt string, fn func(passphrase string) error) error {
-	err := fn("")
-	if err == nil {
-		return nil
-	}
-
-	if !strings.Contains(err.Error(), agent.ErrPassphraseRequired) {
-		return err
-	}
-
-	// Passphrase required — prompt and retry
-	pass, promptErr := stdinPrompter().Passphrase(prompt)
-	if promptErr != nil {
-		return UserError(promptErr.Error())
-	}
-
-	return fn(pass)
-}
-
 // createStore walks the user through creating the store for the first time.
 // Called by startAgent when no store exists yet.
 // Returns the chosen passphrase so the caller can launch the daemon.

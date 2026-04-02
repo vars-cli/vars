@@ -3,13 +3,18 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/vars-cli/vars/internal/agent"
 )
 
+var mvForce bool
+
 func init() {
+	mvCmd.Flags().BoolVarP(&mvForce, "force", "f", false, "Skip confirmation prompt")
 	rootCmd.AddCommand(mvCmd)
 }
 
@@ -23,9 +28,23 @@ var mvCmd = &cobra.Command{
 		}
 		sockPath := agentSocketPath()
 
-		if err := withPassphrase("Store passphrase to confirm: ", func(pass string) error {
-			return agent.Rename(sockPath, args[0], args[1], pass)
-		}); err != nil {
+		if !mvForce {
+			isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+			if !isTTY {
+				return UserError("rename requires confirmation; use --force for non-interactive use")
+			}
+			fmt.Fprintf(os.Stderr, "Rename %s → %s\n", args[0], args[1])
+			answer, err := stdinPrompter().Line("Confirm? [y/N] ")
+			if err != nil {
+				return UserError(err.Error())
+			}
+			if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(answer)), "y") {
+				fmt.Fprintln(os.Stderr, "Aborted.")
+				return nil
+			}
+		}
+
+		if err := agent.Rename(sockPath, args[0], args[1]); err != nil {
 			return UserError(err.Error())
 		}
 

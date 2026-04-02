@@ -244,7 +244,6 @@ func (x *SetItem) GetValue() string {
 type SetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*SetItem             `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Passphrase    string                 `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -286,13 +285,6 @@ func (x *SetRequest) GetItems() []*SetItem {
 	return nil
 }
 
-func (x *SetRequest) GetPassphrase() string {
-	if x != nil {
-		return x.Passphrase
-	}
-	return ""
-}
-
 type SetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -332,7 +324,6 @@ func (*SetResponse) Descriptor() ([]byte, []int) {
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	Passphrase    string                 `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -372,13 +363,6 @@ func (x *DeleteRequest) GetKeys() []string {
 		return x.Keys
 	}
 	return nil
-}
-
-func (x *DeleteRequest) GetPassphrase() string {
-	if x != nil {
-		return x.Passphrase
-	}
-	return ""
 }
 
 type DeleteResponse struct {
@@ -686,7 +670,6 @@ type RenameRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
 	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
-	Passphrase    string                 `protobuf:"bytes,3,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -731,13 +714,6 @@ func (x *RenameRequest) GetFrom() string {
 func (x *RenameRequest) GetTo() string {
 	if x != nil {
 		return x.To
-	}
-	return ""
-}
-
-func (x *RenameRequest) GetPassphrase() string {
-	if x != nil {
-		return x.Passphrase
 	}
 	return ""
 }
@@ -793,19 +769,13 @@ const file_internal_agent_agent_proto_rawDesc = "" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"1\n" +
 	"\aSetItem\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"R\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"2\n" +
 	"\n" +
 	"SetRequest\x12$\n" +
-	"\x05items\x18\x01 \x03(\v2\x0e.agent.SetItemR\x05items\x12\x1e\n" +
-	"\n" +
-	"passphrase\x18\x02 \x01(\tR\n" +
-	"passphrase\"\r\n" +
-	"\vSetResponse\"C\n" +
+	"\x05items\x18\x01 \x03(\v2\x0e.agent.SetItemR\x05items\"\r\n" +
+	"\vSetResponse\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1e\n" +
-	"\n" +
-	"passphrase\x18\x02 \x01(\tR\n" +
-	"passphrase\"\x10\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"\x10\n" +
 	"\x0eDeleteResponse\"\"\n" +
 	"\x0eHistoryRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\"=\n" +
@@ -820,13 +790,10 @@ const file_internal_agent_agent_proto_rawDesc = "" +
 	"\x0ePasswdResponse\".\n" +
 	"\x12SetAgentTTLRequest\x12\x18\n" +
 	"\aseconds\x18\x01 \x01(\x03R\aseconds\"\x15\n" +
-	"\x13SetAgentTTLResponse\"S\n" +
+	"\x13SetAgentTTLResponse\"3\n" +
 	"\rRenameRequest\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x02 \x01(\tR\x02to\x12\x1e\n" +
-	"\n" +
-	"passphrase\x18\x03 \x01(\tR\n" +
-	"passphrase\"\x10\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\"\x10\n" +
 	"\x0eRenameResponse2\xb8\x03\n" +
 	"\x04Vars\x12,\n" +
 	"\x03Get\x12\x11.agent.GetRequest\x1a\x12.agent.GetResponse\x12/\n" +
