@@ -52,10 +52,11 @@ That's the core loop. The rest is optional.
 Run `vars` with no arguments to get started. If no store exists yet, it walks you through creating one and choosing a passphrase (optional).
 
 ```sh
-vars set DB_PASSWORD              # prompts for the value
-vars set API_TOKEN "abc123"
-vars get RPC_URL                  # print the value
-vars ls                           # list the keys
+vars set DB_URL "http://user@server/db"
+vars set API_TOKEN               # prompts for the value
+vars set PRIVATE_KEY
+vars get DB_URL                  # print the value
+vars ls                          # list the keys
 ```
 
 The first time you run a command you'll be asked for your passphrase. After that, the store stays unlocked in your session for 8 hours — no re-entering it between commands or across terminal sessions.
@@ -85,9 +86,9 @@ eval "$(vars resolve)"            # bash/zsh
 vars resolve --fish | source      # fish
 ```
 
-`resolve` reads the manifest, looks up each key in your store, and prints shell-ready `export` statements. Nothing is written to disk.
+`resolve` reads the manifest, looks up each key in your store, and prints shell-ready `export` statements with the right values to load into your shell. Nothing is written to disk.
 
-Each developer uses their own store. The committed manifest is the shared contract; the secrets are personal.
+Each developer uses their own store. The `.env.vars` manifest is the shared contract; the secrets are personal.
 
 ---
 
@@ -104,7 +105,7 @@ vars set SERVER_API_KEY "abc123"               # shared, no scope needed
 
 ```sh
 vars ls                   # top-level keys only
-vars ls prod              # keys under prod/, prefix stripped from output
+vars ls prod              # keys under prod/
 vars ls -a                # all keys from all scopes
 vars scope ls             # list all scope prefixes in the store
 ```
@@ -140,9 +141,7 @@ vars resolve -p mainnet   # use the mainnet profile
 
 When resolving a key, `resolve` searches from most specific to least — stripping one scope level at a time:
 
-```
-dev/temp/RPC_URL  →  dev/RPC_URL  →  RPC_URL  →  not found
-```
+`dev/temp/RPC_URL`  →  `dev/RPC_URL`  →  `RPC_URL`  →  not found
 
 This lets profiles reference specific scoped keys even if you've only stored the base key.
 
@@ -170,8 +169,8 @@ Profile values support two special prefixes:
 
 | Syntax | Behaviour |
 |--------|-----------|
-| `= value` | Always emit this literal value — no store lookup |
-| `?= value` | Use store value if present and non-empty; otherwise emit this default |
+| `= value` | Emit this literal value — no store lookup |
+| `?= value` | Use an available value if present and non-empty; otherwise emit this default |
 
 ```yaml
 profiles:
@@ -187,7 +186,7 @@ profiles:
 
 ## Local overrides
 
-Profiles in `.vars.yaml` are committed — they are the team's shared convention. For local overrides you can add `.vars.local.yaml` alongside `.vars.yaml`. Git-ignore it; never commit it.
+Profiles in `.vars.yaml` are committed: they are the team's shared convention. For local overrides you can add `.vars.local.yaml` alongside `.vars.yaml`. It should be git-ignored; never commit it.
 
 `.vars.local.yaml` has the same structure as `.vars.yaml`, minus `keys:`:
 
@@ -204,16 +203,18 @@ Local overrides take priority over `.vars.yaml`, per key, per profile.
 
 ---
 
-## Mixing with existing env vars
+## Working with existing env vars
 
-You can pipe an existing `.env` into `vars resolve`. Store values take priority for manifest keys; the dotenv acts as a fallback for keys not yet in the store; anything not declared in the manifest passes through unchanged.
+You can pipe existing `.env` files into `vars resolve`. Store values take priority for manifest keys; the dotenv acts as a fallback for keys not yet in the store. Any keys not declared in the manifest pass through unchanged.
 
 ```sh
 cat .env | vars resolve             # error if a manifest key is missing from both sources
 cat .env | vars resolve --partial   # ignore keys missing from both, pass the rest through
 ```
 
-If a manifest key isn't found in the store or a piped `.env`, `vars resolve` checks the current shell as a last fallback — no export emitted (the value is already there), no error thrown. Use `--origin` to see where each value came from:
+If a manifest key isn't found in the store or a piped `.env`, then `vars resolve` checks the current shell as a last fallback. If the variable already exists, no export is emitted (the value is already there). Otherwise, an error is thrown.
+
+Use `--origin` to see where each value came from:
 
 ```sh
 $ cat .env | vars resolve --partial --origin
@@ -228,9 +229,9 @@ export RPC_URL='http://...'     # manifest
 | Origin | Meaning |
 |--------|---------|
 | `vars` | Value from the encrypted store |
-| `.env` | Value from piped stdin dotenv file |
-| `manifest` | Inline literal (`= value`) or used default (`?= value`) |
-| `shell` | Already in the calling shell — no export emitted |
+| `.env` | Value from piped stdin (dotenv file) |
+| `manifest` | Inline literal (`= value`) or inline default (`?= value`) |
+| `shell` | Already in the calling shell (no export emitted) |
 | `missing` | Not found anywhere (only appears with `--partial`) |
 
 ---
@@ -239,7 +240,7 @@ export RPC_URL='http://...'     # manifest
 
 ### Scripts and task runners
 
-```sh
+```just
 # justfile
 deploy:
     #!/usr/bin/env bash
@@ -265,23 +266,26 @@ docker run --env-file <(vars resolve --dotenv) my-image
 ### Migrating from `.env` files
 
 ```sh
-vars import .env                    # import all keys
-vars import my-project/dev .env     # import with a scope prefix → my-project/dev/KEY
+vars import .env                    # import keys
+vars import my-project/dev .env     # import with a scope prefix → my-project/dev/KEY_NAME
+rm .env
 ```
 
-Conflicts are handled interactively (replace, skip). Use `--replace` or `--skip` for non-interactive imports.
+Conflicts are handled interactively (replace, new name, skip). Use `--replace` or `--skip` for non-interactive imports.
 
 ### Integrating with external vaults
 
 `vars` resolves to plain env vars, so it composes with anything.
 
-```sh
-vars set dev/RPC_URL        "$(op read 'op://dev/rpc/url')"          # 1Password
-vars set dev/API_KEY        "$(vault kv get -field=value dev/api)"   # HashiCorp Vault
-vars set dev/SECRET         "$(aws secretsmanager get-secret-value --secret-id dev/secret --query SecretString --output text)"
+```just
+# justfile
+sync:
+    vars set dev/RPC_URL      "$(op read 'op://dev/rpc/url')"             # 1Password
+    vars set dev/API_KEY      "$(vault kv get -field=value dev/api_key)"  # HashiCorp Vault
+    vars set dev/SECRET       "$(aws secretsmanager get-secret-value --secret-id dev/secret --query SecretString --output text)"
 ```
 
-Run during onboarding or after a rotation. `--skip` leaves existing keys untouched; `--replace` replaces them.
+Run this during onboarding or after a key rotation. As before, `--skip` leaves existing keys untouched; `--replace` replaces them.
 
 ### Renaming and removing keys
 
@@ -290,7 +294,7 @@ vars mv OLD_KEY NEW_KEY    # atomic rename
 vars rm OLD_KEY            # delete key and its history
 ```
 
-Every replace saves the old value automatically:
+## Checking older values
 
 ```sh
 vars history RPC_URL
@@ -385,9 +389,7 @@ When resolving a key with `--profile mainnet`:
 
 When looking up a store key, `vars` tries progressively less specific:
 
-```
-prod/dev/RPC_URL  →  prod/RPC_URL  →  RPC_URL  →  not found
-```
+`prod/dev/RPC_URL`  →  `prod/RPC_URL`  →  `RPC_URL`  →  not found
 
 ---
 
@@ -406,7 +408,7 @@ vars agent stop        # wipe memory and exit immediately
 To set a persistent default, add `VARS_AGENT_TTL` to your shell profile:
 
 ```sh
-export VARS_AGENT_TTL=4h   # e.g. 30m, 4h, 12h, 1d, 0 for unlimited
+export VARS_AGENT_TTL=4h   # e.g. 15, 60s, 30m, 4h, 12h, 1d, 0 for unlimited
 ```
 
 In CI or scripts where stdin is already occupied by a piped `.env` file, pre-start the agent with the passphrase before piping:
@@ -425,7 +427,7 @@ cat .env | vars resolve --partial
 - **Memory zeroing**: decrypted buffers are zeroed when the agent exits
 - **Permissions**: store directory `0700`, file `0600`
 - **Atomic writes**: temp file + rename prevents partial writes on crash
-- **Empty passphrase**: fully supported — same model as unprotected SSH keys
+- **Empty passphrase**: supported: same model as unprotected SSH keys
 
 The store lives at `~/.local/share/vars/` by default (XDG). Override with `VARS_STORE_DIR`.
 
