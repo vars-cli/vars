@@ -1,6 +1,8 @@
 # Safe Vars
 
-Secure environment variables for your projects. One encrypted personal store, shared across all your repos. No more scattered `.env` files, accidental commits, secrets drifting out of sync or even read by a coding agent.
+Secure environment variables for your projects with UNIX-like composability. 
+
+One encrypted personal store, shared across all your repos. No more scattered `.env` files, accidental leaks, secrets out of sync or even read by a coding agent.
 
 ---
 
