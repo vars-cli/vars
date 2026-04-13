@@ -1,4 +1,4 @@
-# Safe Vars
+# Key Vars
 
 Secure environment variables for your projects with UNIX-like composability. 
 
